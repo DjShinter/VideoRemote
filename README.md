@@ -27,7 +27,7 @@ You can join **STARCVR** discord: https://discord.gg/sHN9x2n2j8
 
 This mod allows you to have three functional new buttons in the User Interface called "Paste" "V-Play" "V-Pause".
 
-With these buttons you can paste in a link and play the video, or you can play the video player or pause the video player, this was made for ease of use.
+With these buttons, you can paste in a link and play the video, or you can play the video player or pause the video player, this was made for ease of use.
 
 This is the feature request for this mod. https://forums.abinteractive.net/d/272-video-player-remote-control
 # Installation
