@@ -22,6 +22,7 @@ Any references to code related to Alpha Blend Interactive / ABI is code owned by
 
 # Discord
 You can join **STARCVR** discord: https://discord.gg/sHN9x2n2j8
+Modding Discord: https://discord.gg/ECaZkYzkFH
 
 # Mod Information
 
