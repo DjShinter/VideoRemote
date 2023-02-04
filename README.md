@@ -30,7 +30,7 @@ CVR Modding Corner: https://discord.gg/ECaZkYzkFH
 
 This mod allows you to have Video Remote Controls in the Quick Menu.
 
-This is the feature request for this mod. https://forums.abinteractive.net/d/272-video-player-remote-control
+This is the feature request for this mod. https://feedback.abinteractive.net/p/video-player-remote-control
 # Installation
 
 This mod **requires** [BTKUILib](https://github.com/BTK-Development/BTKUILib) otherwise it will not work.
