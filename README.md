@@ -21,12 +21,14 @@ Any references to code related to Alpha Blend Interactive / ABI is code owned by
 
 # Discord
 You can join **STARCVR** discord: https://discord.gg/sHN9x2n2j8
+
 ChilloutVR Modding Group: https://discord.gg/dndGPM3bxu
+
 CVR Modding Corner: https://discord.gg/ECaZkYzkFH
 
 # Mod Information
 
-This mod allows you to have Video Remote Controls, you can 
+This mod allows you to have Video Remote Controls in the Quick Menu.
 
 This is the feature request for this mod. https://forums.abinteractive.net/d/272-video-player-remote-control
 # Installation
