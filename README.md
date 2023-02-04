@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://i.imgur.com/ZtXzchy.png" />
+  <img src="https://i.imgur.com/6htHu3b.png" />
 </p>
 
 # Video Remote Mod
@@ -19,23 +19,22 @@ Any references to code related to Alpha Blend Interactive / ABI is code owned by
 
 
 
-
 # Discord
 You can join **STARCVR** discord: https://discord.gg/sHN9x2n2j8
-Modding Discord: https://discord.gg/ECaZkYzkFH
+ChilloutVR Modding Group: https://discord.gg/dndGPM3bxu
+CVR Modding Corner: https://discord.gg/ECaZkYzkFH
 
 # Mod Information
 
-This mod allows you to have three functional new buttons in the User Interface called "Paste" "V-Play" "V-Pause".
-
-With these buttons, you can paste in a link and play the video, or you can play the video player or pause the video player, this was made for ease of use.
+This mod allows you to have Video Remote Controls, you can 
 
 This is the feature request for this mod. https://forums.abinteractive.net/d/272-video-player-remote-control
 # Installation
 
+This mod **requires** [BTKUILib](https://github.com/BTK-Development/BTKUILib) otherwise it will not work.
+
 To install the "**Video Remote Mod**" place "**VideoRemote.dll**" inside your "Mods" folder located in **ChilloutVR** > **Mods**
 
-You are required to install Dasui to use the three buttons, this mod does not come with the user interface and the user interface can be downloaded here: https://github.com/Neradon/Dasui/
 
 # Developer Note
 
@@ -44,21 +43,12 @@ If this mod breaks terms of service, I will shutdown this project immediately as
 # Building this project
 
 I'm not going to provide "**MelonLoader.dll**" & game files related to ChilloutVR, this is on you!
+BTKUILib Dependency: [BTKUILib](https://github.com/BTK-Development/BTKUILib)
+Download the Source Code, references the libs and build.
 
-Download the Source Code and put the DLL's in /Libs which are: "**MelonLoader.dll**" & "**Assembly-CSharp.dll**" & "**UnityEngine.dll**" & "**UnityEngine.CoreModule.dll**", "**cohtml.Net.dll** & "**Cohtml.Runtime.dll**".
+# Developer Note
 
-As for the UI, go bug https://github.com/Neradon/Dasui/ about that, I don't know how to work with the UI.
-
-If you want to create your own buttons and want to reference this mod these are the events and calls you need to use.
-
-**CVRAppShinModInstalled** (If the mod is installed)
-
-**CVRAppVideoPastePlay** (If you want to paste the URL and then play the Video)
-
-**CVRAppVideoPlay** (If you want to play the Video Player)
-
-**CVRAppVideoPause** (If you want to pause the Video Player)
-
+If this mod breaks terms of service, I will shutdown this project immediately as soon as I get note regarding about this, but I believe that this is a quality of life change.
 
 # Is this mod not allowed?
 
@@ -83,7 +73,3 @@ Official post regarding Modding: https://docs.abinteractive.net/official/legal/t
 §7.6 You may never create cheats / hacks to bypass limitations or gain an unfair advantage in any game mode or game world. ✅
 
 §7.7 When installing mods, the liability for damage and harm caused by such is on the user. ABI will not be liable for any harm, damage or any other negative impact caused by modifications loaded from sources other than the official workshop. ✅
-
-# Contribution
-If you want to improve this mod and or fix issues, create a pull request.
-Any problems with the mod has to be reported to the issues board.
