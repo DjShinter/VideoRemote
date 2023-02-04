@@ -1,17 +1,12 @@
-﻿using ABI_RC.Core.InteractionSystem;
-using ABI_RC.VideoPlayer.Scripts;
+﻿using ABI_RC.VideoPlayer.Scripts;
 using BTKUILib;
 using MelonLoader;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Reflection;
 using BTKUILib.UIObjects;
-using ABI_RC.Core.Player;
 using BTKUILib.UIObjects.Components;
 using System.Collections.Generic;
-using TMPro;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System.IO;
 using System;
 using System.Linq;
@@ -23,7 +18,7 @@ namespace VideoRemote
     {
         public const string Name = "Video Remote";
         public const string Author = "Shin";
-        public const string Version = "1.0";
+        public const string Version = "1.0.1";
         public const string Description = "This allows you to use the video player with the menu.";
         public const string DownloadLink = "https://github.com/DjShinter/VideoRemote/releases";
     }
