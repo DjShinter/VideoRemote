@@ -11,6 +11,9 @@ using System.IO;
 using System;
 using System.Linq;
 using Semver;
+using ABI.CCK.Components;
+using ABI_RC.Core.InteractionSystem;
+using HarmonyLib;
 
 namespace VideoRemote
 {
@@ -18,7 +21,7 @@ namespace VideoRemote
     {
         public const string Name = "Video Remote";
         public const string Author = "Shin";
-        public const string Version = "1.0.1";
+        public const string Version = "1.0.2";
         public const string Description = "This allows you to use the video player with the menu.";
         public const string DownloadLink = "https://github.com/DjShinter/VideoRemote/releases";
     }
@@ -26,8 +29,9 @@ namespace VideoRemote
     {
 
         private static Category PageCategory;
-        private static List<Button> SavedButtons = new();
-        private static List<ViewManagerVideoPlayer> SavedVP = new();
+        private static readonly List<Button> SavedButtons = new();
+        private static readonly List<ViewManagerVideoPlayer> SavedVP = new();
+
         public static bool _initalized = new();
         private static ViewManagerVideoPlayer VideoPlayerSelected = new();
         private const string FolderRoot = "UserData/VideoRemote/";
@@ -37,7 +41,7 @@ namespace VideoRemote
         {
             if (!RegisteredMelons.Any(x => x.Info.Name.Equals("BTKUILib") && x.Info.SemanticVersion != null && x.Info.SemanticVersion.CompareTo(new SemVersion(1)) >= 0))
             {
-                MelonLogger.Error("BTKUILib was not detected or it is outdated! VideoREmote cannot function without it!");
+                MelonLogger.Error("BTKUILib was not detected or it is outdated! VideoRemote cannot function without it!");
                 MelonLogger.Error("Please download an updated copy for BTKUILib!");
                 return;
             }
@@ -75,8 +79,7 @@ namespace VideoRemote
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModButton", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Button.png"));
             SetupUI();
 
-
-            void SetupUI()
+            static void SetupUI()
             {
                 var CustomPage = new Page("VideoRemoteMod", "VideoRemotePage", true, "VideoPlayerModLogo")
                 {
@@ -131,13 +134,13 @@ namespace VideoRemote
                     }
 
                 };
-                var button4 = category.AddButton("Save URL", "VideoPlayerModButton", "Stores this into the Mod Folder, if you wanted the URL");
+                var button4 = category.AddButton("Save URL", "VideoPlayerModButton", @"Stores this into the ChilloutVR\UserData\VideoRemote Folder, to see saved URLs.");
                 button4.OnPress += () =>
                 {
                     if (VideoPlayerSelected != null)
                     {
                         SaveUrl(VideoPlayerSelected);
-
+                        MelonLogger.Msg(@"Saved URL! Located in ChilloutVR\UserData\VideoRemote\savedURLs.txt");
                     }
                     else
                     {
@@ -155,11 +158,18 @@ namespace VideoRemote
                     DeleteAllButtons();
                     SavedButtons.Clear();
                     SavedVP.Clear();
-                    foreach (ViewManagerVideoPlayer vp in GameObject.FindObjectsOfType<ViewManagerVideoPlayer>())
+                    if(GameObject.FindObjectOfType<CVRVideoPlayer>())
                     {
-                        
-                        AddButton(vp);
+                        foreach (CVRVideoPlayer vp in GameObject.FindObjectsOfType<CVRVideoPlayer>())
+                        {
+                            List<IVideoPlayerUi> savedvpui = Traverse.Create(vp).Field("VideoPlayerUis").GetValue<List<IVideoPlayerUi>>();
+                            foreach (ViewManagerVideoPlayer vp2 in savedvpui.Cast<ViewManagerVideoPlayer>())
+                            {
+                                AddButton(vp, vp2);
+                            }
+                        }
                     }
+                    
                 };
             }
         }
@@ -176,10 +186,8 @@ namespace VideoRemote
                     string vidname = vp.videoName.text;
                     vidname = vidname.Remove(0, 26);
 
-                    using (StreamWriter sw = File.CreateText(FolderRoot + FolderConfig))
-                    {
-                        sw.WriteLine(DateTime.Now + " " + vidname + " " + vp.videoUrl.text);
-                    }
+                    using StreamWriter sw = File.CreateText(FolderRoot + FolderConfig);
+                    sw.WriteLine(DateTime.Now + " " + vidname + " " + vp.videoUrl.text);
                 }
                 else
                 {
@@ -188,10 +196,8 @@ namespace VideoRemote
                         string vidname = vp.videoName.text;
                         vidname = vidname.Remove(0, 26);
 
-                        using (StreamWriter sw = File.AppendText(FolderRoot + FolderConfig))
-                        {
-                            sw.WriteLine(DateTime.Now + " " + vidname + " " + vp.videoUrl.text);
-                        }
+                        using StreamWriter sw = File.AppendText(FolderRoot + FolderConfig);
+                        sw.WriteLine(DateTime.Now + " " + vidname + " " + vp.videoUrl.text);
                     }
                 }
             }
@@ -203,15 +209,15 @@ namespace VideoRemote
         }
 
 
-        private static void AddButton(ViewManagerVideoPlayer vp)
+        private static void AddButton(CVRVideoPlayer CVRvp, ViewManagerVideoPlayer vp)
         {
 
-            var button = PageCategory.AddButton(vp.name, "VideoPlayerModButton", "Select " + vp.name + " to be used for remoting.");
+            var button = PageCategory.AddButton("Video Player \n (Hover)", "VideoPlayerModButton", CVRvp.playerId);
             button.OnPress += () =>
             {
                 VideoPlayerSelected = vp;
 
-                MelonLogger.Msg(vp.name + " has been selected");
+                MelonLogger.Msg(CVRvp.playerId + " has been selected");
 
             };
             SavedButtons.Add(button);
