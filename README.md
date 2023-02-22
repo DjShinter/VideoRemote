@@ -38,9 +38,6 @@ This mod **requires** [BTKUILib](https://github.com/BTK-Development/BTKUILib) ot
 To install the "**Video Remote Mod**" place "**VideoRemote.dll**" inside your "Mods" folder located in **ChilloutVR** > **Mods**
 
 
-# Developer Note
-
-If this mod breaks terms of service, I will shutdown this project immediately as soon as I get note regarding about this, but I believe that this is a quality of life change.
 
 # Building this project
 
