@@ -21,7 +21,7 @@ namespace VideoRemote
     {
         public const string Name = "Video Remote";
         public const string Author = "Shin";
-        public const string Version = "1.0.2";
+        public const string Version = "1.1.0";
         public const string Description = "This allows you to use the video player with the menu.";
         public const string DownloadLink = "https://github.com/DjShinter/VideoRemote/releases";
     }
@@ -36,6 +36,11 @@ namespace VideoRemote
         private static ViewManagerVideoPlayer VideoPlayerSelected = new();
         private const string FolderRoot = "UserData/VideoRemote/";
         private const string FolderConfig = "savedURLs.txt";
+
+        private static string VideoFolderString;
+        private static GameObject localScreen;
+        private static bool pickupable = false;
+        private static float sizeScale = 1;
 
         public override void OnInitializeMelon()
         {
@@ -77,7 +82,12 @@ namespace VideoRemote
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModPlay", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Play.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModPause", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Pause.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModButton", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Button.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "NewScreen", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.NewScreen.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "White-Minus", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.White-Minus.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "White-Plus", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.White-Plus.png"));
+
             SetupUI();
+            QuickMenuAPI.OnOpenedPage += OnVideoPlayersFolderOpen;
 
             static void SetupUI()
             {
@@ -150,31 +160,50 @@ namespace VideoRemote
                 };
 
                 var Folder = category.AddPage("Video Players", "VideoPlayerModLogo", "Video Players in the World List", "VideoRemoteMod");
+                VideoFolderString = Folder.ElementID;
                 var FolderCategory = Folder.AddCategory("Video Players In World");
                 PageCategory = FolderCategory;
                 var buttonVP1 = FolderCategory.AddButton("Load Video Players", "VideoPlayerModLogo", "Load the Video Players");
                 buttonVP1.OnPress += () =>
                 {
-                    DeleteAllButtons();
-                    SavedButtons.Clear();
-                    SavedVP.Clear();
-                    if(GameObject.FindObjectOfType<CVRVideoPlayer>())
+                    PopulateVideoList();
+                };
+
+                var category2 = CustomPage.AddCategory("Local Video Player Screen");
+                var buttSpawnScreen = category2.AddButton("Spawn/Toggle Local Screen", "NewScreen", "Creates a local copy of the video player screen in front of you.<p>You must select a video player first.");
+                buttSpawnScreen.OnPress += () =>
+                {
+                    if (VideoPlayerSelected != null)
                     {
-                        foreach (CVRVideoPlayer vp in GameObject.FindObjectsOfType<CVRVideoPlayer>())
-                        {
-                            List<IVideoPlayerUi> savedvpui = Traverse.Create(vp).Field("VideoPlayerUis").GetValue<List<IVideoPlayerUi>>();
-                            foreach (ViewManagerVideoPlayer vp2 in savedvpui.Cast<ViewManagerVideoPlayer>())
-                            {
-                                AddButton(vp, vp2);
-                            }
-                        }
+                        ToggleLocalScreen();
                     }
-                    
+                    else
+                    {
+                        MelonLogger.Msg("Can not create local screen. Video Player Not Selected or does not exist.");
+                    }
+                };
+                var buttSmaller = category2.AddButton("Smaller", "White-Minus", "Decreases the screen size");
+                buttSmaller.OnPress += () =>
+                {
+                    if (sizeScale > .25) sizeScale -= .25f;
+                    UpdateLocalScreen();
+                };
+                var buttLarger = category2.AddButton("Larger", "White-Plus", "Increases the screen size");
+                buttLarger.OnPress += () =>
+                {
+                    sizeScale += .25f;
+                    UpdateLocalScreen();
+                };
+                var buttPickup = category2.AddToggle("Pickupable", "Toggles pickup of the local screen", pickupable);
+                buttPickup.OnValueUpdated += action =>
+                {
+                    pickupable = action;
+                    UpdateLocalScreen();
                 };
             }
         }
 
-
+        
 
         private static void SaveUrl(ViewManagerVideoPlayer vp)
         {
@@ -232,6 +261,77 @@ namespace VideoRemote
                 }
             }
 
+        }
+
+        private static void PopulateVideoList()
+        {
+            DeleteAllButtons();
+            SavedButtons.Clear();
+            SavedVP.Clear();
+            if (GameObject.FindObjectOfType<CVRVideoPlayer>())
+            {
+                foreach (CVRVideoPlayer vp in GameObject.FindObjectsOfType<CVRVideoPlayer>())
+                {
+                    List<IVideoPlayerUi> savedvpui = Traverse.Create(vp).Field("VideoPlayerUis").GetValue<List<IVideoPlayerUi>>();
+                    foreach (ViewManagerVideoPlayer vp2 in savedvpui.Cast<ViewManagerVideoPlayer>())
+                    {
+                        AddButton(vp, vp2);
+                    }
+                }
+            }
+        }
+
+        public static void OnVideoPlayersFolderOpen(string targetPage, string lastPage)
+        {
+            if (targetPage == VideoFolderString)
+            {
+                PopulateVideoList();
+            }
+        }
+
+        private static void ToggleLocalScreen()
+        {
+            if (!localScreen?.Equals(null) ?? false)
+            {
+                try { UnityEngine.Object.Destroy(localScreen); } catch (System.Exception ex) { MelonLogger.Msg(ConsoleColor.DarkRed, ex.ToString()); }
+                localScreen = null;
+            }
+            else
+            {
+                GameObject cam = Camera.main.gameObject;
+                Vector3 pos = cam.transform.position + (cam.transform.forward * 2f); // Gets position of Head 
+                GameObject _obj = GameObject.CreatePrimitive(PrimitiveType.Plane);
+                _obj.transform.position = pos;
+                _obj.transform.LookAt(cam.transform);
+                _obj.transform.rotation = _obj.transform.rotation * Quaternion.AngleAxis(90, Vector3.right); //Flip so screen is visible 
+                _obj.name = "LocalVideoScreen-Mod";
+                _obj.transform.localScale = new Vector3(1.777f * sizeScale / 10f, 1f * sizeScale / 10f, 1f * sizeScale / 10f);
+
+                _obj.GetComponent<MeshCollider>().enabled = false;
+                _obj.AddComponent<BoxCollider>();
+                _obj.GetComponent<BoxCollider>().size = new Vector3(10f, .05f, 10f);
+                _obj.GetComponent<BoxCollider>().isTrigger = true;
+
+                Material mat = new Material(Shader.Find("Unlit/Texture"));
+                mat.mainTexture = VideoPlayerSelected.videoPlayer.ProjectionTexture;
+                _obj.GetComponent<MeshRenderer>().material = mat;
+
+                _obj.AddComponent<CVRPickupObject>();
+                _obj.GetComponent<CVRPickupObject>().maximumGrabDistance = 30f;
+                _obj.GetComponent<CVRPickupObject>().enabled = pickupable;
+                _obj.GetComponent<CVRPickupObject>().gripType = CVRPickupObject.GripType.Free;
+
+                localScreen = _obj;
+            }
+        }
+
+        private static void UpdateLocalScreen()
+        {
+            if (!localScreen?.Equals(null) ?? false)
+            {
+                localScreen.transform.localScale = new Vector3(1.777f * sizeScale / 10f, 1f * sizeScale / 10f, 1f * sizeScale / 10f);
+                localScreen.GetComponent<CVRPickupObject>().enabled = pickupable;
+            }
         }
     }
 }
