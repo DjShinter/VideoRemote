@@ -21,7 +21,7 @@ namespace VideoRemote
     {
         public const string Name = "Video Remote";
         public const string Author = "Shin";
-        public const string Version = "1.1.0";
+        public const string Version = "1.1.1";
         public const string Description = "This allows you to use the video player with the menu.";
         public const string DownloadLink = "https://github.com/DjShinter/VideoRemote/releases";
     }
@@ -57,8 +57,6 @@ namespace VideoRemote
             {
                 Directory.CreateDirectory(FolderRoot);
             }
-               
-
         }
 
 
@@ -98,11 +96,7 @@ namespace VideoRemote
                     MenuSubtitle = ModBuildInfo.Description
                 };
 
-
                 var category = CustomPage.AddCategory("Video Remote Controls");
-
-
-                
                 
                 var button = category.AddButton("Play Video", "VideoPlayerModPlay", "Play the Video");
                 button.OnPress += () =>
@@ -114,6 +108,7 @@ namespace VideoRemote
                     }
                     else
                     {
+                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 1);
                         MelonLogger.Msg("Video Player Not Selected or does not exist.");
                     }
 
@@ -127,6 +122,7 @@ namespace VideoRemote
                     }
                     else
                     {
+                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 1);
                         MelonLogger.Msg("Video Player Not Selected or does not exist.");
                     }
 
@@ -136,10 +132,13 @@ namespace VideoRemote
                 {
                     if (VideoPlayerSelected != null)
                     {
-                        VideoPlayerSelected.PasteAndPlay();
+                        QuickMenuAPI.ShowConfirm("Confirm", "Paste and Play Video?", () => {
+                            VideoPlayerSelected.PasteAndPlay();
+                        }, () => { }, "Yes", "No");
                     }
                     else
                     {
+                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 1);
                         MelonLogger.Msg("Video Player Not Selected or does not exist.");
                     }
 
@@ -150,10 +149,12 @@ namespace VideoRemote
                     if (VideoPlayerSelected != null)
                     {
                         SaveUrl(VideoPlayerSelected);
-                        MelonLogger.Msg(@"Saved URL! Located in ChilloutVR\UserData\VideoRemote\savedURLs.txt");
+                        QuickMenuAPI.ShowAlertToast($"Saved URL! Located in ChilloutVR/{FolderRoot}{FolderConfig}", 1);
+                        MelonLogger.Msg($"Saved URL! Located in ChilloutVR/{FolderRoot}{FolderConfig}");
                     }
                     else
                     {
+                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 1);
                         MelonLogger.Msg("Video Player Not Selected or does not exist.");
                     }
 
@@ -179,6 +180,7 @@ namespace VideoRemote
                     }
                     else
                     {
+                        QuickMenuAPI.ShowAlertToast("Can not create local screen. Video Player Not Selected or does not exist.", 2);
                         MelonLogger.Msg("Can not create local screen. Video Player Not Selected or does not exist.");
                     }
                 };
