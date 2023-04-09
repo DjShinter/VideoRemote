@@ -108,7 +108,7 @@ namespace VideoRemote
                     }
                     else
                     {
-                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 1);
+                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 2);
                         MelonLogger.Msg("Video Player Not Selected or does not exist.");
                     }
 
@@ -122,7 +122,7 @@ namespace VideoRemote
                     }
                     else
                     {
-                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 1);
+                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 2);
                         MelonLogger.Msg("Video Player Not Selected or does not exist.");
                     }
 
@@ -138,23 +138,23 @@ namespace VideoRemote
                     }
                     else
                     {
-                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 1);
+                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 2);
                         MelonLogger.Msg("Video Player Not Selected or does not exist.");
                     }
 
                 };
-                var button4 = category.AddButton("Save URL", "VideoPlayerModButton", @"Stores this into the ChilloutVR\UserData\VideoRemote Folder, to see saved URLs.");
+                var button4 = category.AddButton("Save URL", "VideoPlayerModButton", $"Stores the current video URL into the ChilloutVR/{FolderRoot} Folder.");
                 button4.OnPress += () =>
                 {
                     if (VideoPlayerSelected != null)
                     {
                         SaveUrl(VideoPlayerSelected);
-                        QuickMenuAPI.ShowAlertToast($"Saved URL! Located in ChilloutVR/{FolderRoot}{FolderConfig}", 1);
+                        QuickMenuAPI.ShowAlertToast($"Saved URL! Located in ChilloutVR/{FolderRoot}{FolderConfig}", 3);
                         MelonLogger.Msg($"Saved URL! Located in ChilloutVR/{FolderRoot}{FolderConfig}");
                     }
                     else
                     {
-                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 1);
+                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 2);
                         MelonLogger.Msg("Video Player Not Selected or does not exist.");
                     }
 
@@ -180,7 +180,7 @@ namespace VideoRemote
                     }
                     else
                     {
-                        QuickMenuAPI.ShowAlertToast("Can not create local screen. Video Player Not Selected or does not exist.", 2);
+                        QuickMenuAPI.ShowAlertToast("Can not create local screen. Video Player Not Selected or does not exist.", 3);
                         MelonLogger.Msg("Can not create local screen. Video Player Not Selected or does not exist.");
                     }
                 };
