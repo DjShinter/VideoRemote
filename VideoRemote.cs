@@ -20,15 +20,18 @@ namespace VideoRemote
     public static class ModBuildInfo
     {
         public const string Name = "Video Remote";
-        public const string Author = "Shin";
+        public const string Author = "Shin, Nirvash";
         public const string Version = "1.1.1";
         public const string Description = "This allows you to use the video player with the menu.";
         public const string DownloadLink = "https://github.com/DjShinter/VideoRemote/releases";
     }
     public sealed class VideoRemoteMod : MelonMod
     {
-
-        private static Category PageCategory;
+        private static Category PageCategory, AdvancedOptions;
+        private static SliderFloat volumeSilder;
+        private static ToggleButton networkSyncButt;
+        private static Button permissionButt, audioModeButt, button4;
+        private static string VideoFolderString, MainPageString;
         private static readonly List<Button> SavedButtons = new();
         private static readonly List<ViewManagerVideoPlayer> SavedVP = new();
 
@@ -37,7 +40,6 @@ namespace VideoRemote
         private const string FolderRoot = "UserData/VideoRemote/";
         private const string FolderConfig = "savedURLs.txt";
 
-        private static string VideoFolderString;
         private static GameObject localScreen;
         private static bool pickupable = false;
         private static float sizeScale = 1;
@@ -64,9 +66,9 @@ namespace VideoRemote
         {
             if (SceneManager.GetActiveScene().name == "Init")
             {
-                if(!_initalized)
+                if (!_initalized)
                     _initalized = true;
-                    SetupIcons();
+                SetupIcons();
             }
             DeleteAllButtons();
             VideoPlayerSelected = null;
@@ -77,15 +79,20 @@ namespace VideoRemote
         private void SetupIcons()
         {
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModLogo", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.VideoPlayerModLogo.png"));
-            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModPlay", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Play.png"));
-            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModPause", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Pause.png"));
-            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModButton", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Button.png"));
-            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "NewScreen", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.NewScreen.png"));
-            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "White-Minus", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.White-Minus.png"));
-            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "White-Plus", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.White-Plus.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModPlay2", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Play.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModPause2", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Pause.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModNewScreen", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.NewScreen.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModWhite-Minus", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.White-Minus.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModWhite-Plus", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.White-Plus.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModSound", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Sound.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModKeys", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Keys.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModVideoPlayer", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.VideoPlayer.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModPastePlay", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.PastePlay.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModSave", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Save.png"));
 
             SetupUI();
-            QuickMenuAPI.OnOpenedPage += OnVideoPlayersFolderOpen;
+            QuickMenuAPI.OnOpenedPage += OnPageOpen;
+            QuickMenuAPI.OnBackAction += OnPageBack;
 
             static void SetupUI()
             {
@@ -95,10 +102,20 @@ namespace VideoRemote
                     MenuTitle = ModBuildInfo.Name,
                     MenuSubtitle = ModBuildInfo.Description
                 };
+                MainPageString = CustomPage.ElementID;
 
                 var category = CustomPage.AddCategory("Video Remote Controls");
-                
-                var button = category.AddButton("Play Video", "VideoPlayerModPlay", "Play the Video");
+                var Folder = category.AddPage("Select Video Player", "VideoPlayerModLogo", "Video Players in the World List", "VideoRemoteMod");
+                VideoFolderString = Folder.ElementID;
+                var FolderCategory = Folder.AddCategory("Video Players In World");
+                PageCategory = FolderCategory;
+                var buttonVP1 = FolderCategory.AddButton("Load Video Players", "VideoPlayerModLogo", "Load the Video Players");
+                buttonVP1.OnPress += () =>
+                {
+                    PopulateVideoList();
+                };
+
+                var button = category.AddButton("Play Video", "VideoPlayerModPlay2", "Play the Video");
                 button.OnPress += () =>
                 {
 
@@ -113,7 +130,7 @@ namespace VideoRemote
                     }
 
                 };
-                var button2 = category.AddButton("Pause Video", "VideoPlayerModPause", "Pause the Video");
+                var button2 = category.AddButton("Pause Video", "VideoPlayerModPause2", "Pause the Video");
                 button2.OnPress += () =>
                 {
                     if (VideoPlayerSelected != null)
@@ -127,12 +144,13 @@ namespace VideoRemote
                     }
 
                 };
-                var button3 = category.AddButton("Paste and Play Video", "VideoPlayerModButton", "Paste and Play the Video");
+                var button3 = category.AddButton("Paste and Play Video", "VideoPlayerModPastePlay", "Paste and Play the Video");
                 button3.OnPress += () =>
                 {
                     if (VideoPlayerSelected != null)
                     {
-                        QuickMenuAPI.ShowConfirm("Confirm", "Paste and Play Video?", () => {
+                        QuickMenuAPI.ShowConfirm("Confirm", "Paste and Play Video?", () =>
+                        {
                             VideoPlayerSelected.PasteAndPlay();
                         }, () => { }, "Yes", "No");
                     }
@@ -143,35 +161,21 @@ namespace VideoRemote
                     }
 
                 };
-                var button4 = category.AddButton("Save URL", "VideoPlayerModButton", $"Stores the current video URL into the ChilloutVR/{FolderRoot} Folder.");
-                button4.OnPress += () =>
+
+                volumeSilder = CustomPage.AddSlider("Volume", "Video Player Volume", .5f, 0f, 1f);
+                volumeSilder.OnValueUpdated += action =>
                 {
                     if (VideoPlayerSelected != null)
                     {
-                        SaveUrl(VideoPlayerSelected);
-                        QuickMenuAPI.ShowAlertToast($"Saved URL! Located in ChilloutVR/{FolderRoot}{FolderConfig}", 3);
-                        MelonLogger.Msg($"Saved URL! Located in ChilloutVR/{FolderRoot}{FolderConfig}");
+                        VideoPlayerSelected.SetLocalAudioVolume(volumeSilder.SliderValue);
                     }
-                    else
-                    {
-                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 2);
-                        MelonLogger.Msg("Video Player Not Selected or does not exist.");
-                    }
-
                 };
 
-                var Folder = category.AddPage("Video Players", "VideoPlayerModLogo", "Video Players in the World List", "VideoRemoteMod");
-                VideoFolderString = Folder.ElementID;
-                var FolderCategory = Folder.AddCategory("Video Players In World");
-                PageCategory = FolderCategory;
-                var buttonVP1 = FolderCategory.AddButton("Load Video Players", "VideoPlayerModLogo", "Load the Video Players");
-                buttonVP1.OnPress += () =>
-                {
-                    PopulateVideoList();
-                };
+                AdvancedOptions = CustomPage.AddCategory("");
+                PopulateAdvancedButtons();
 
                 var category2 = CustomPage.AddCategory("Local Video Player Screen");
-                var buttSpawnScreen = category2.AddButton("Spawn/Toggle Local Screen", "NewScreen", "Creates a local copy of the video player screen in front of you.<p>You must select a video player first.");
+                var buttSpawnScreen = category2.AddButton("Spawn/Toggle Local Screen", "VideoPlayerModNewScreen", "Creates a local copy of the video player screen in front of you.<p>You must select a video player first.");
                 buttSpawnScreen.OnPress += () =>
                 {
                     if (VideoPlayerSelected != null)
@@ -184,16 +188,16 @@ namespace VideoRemote
                         MelonLogger.Msg("Can not create local screen. Video Player Not Selected or does not exist.");
                     }
                 };
-                var buttSmaller = category2.AddButton("Smaller", "White-Minus", "Decreases the screen size");
+                var buttSmaller = category2.AddButton("Smaller", "VideoPlayerModWhite-Minus", "Decreases the screen size");
                 buttSmaller.OnPress += () =>
                 {
-                    if (sizeScale > .25) sizeScale -= .25f;
+                    if (sizeScale > .15) sizeScale -= .15f;
                     UpdateLocalScreen();
                 };
-                var buttLarger = category2.AddButton("Larger", "White-Plus", "Increases the screen size");
+                var buttLarger = category2.AddButton("Larger", "VideoPlayerModWhite-Plus", "Increases the screen size");
                 buttLarger.OnPress += () =>
                 {
-                    sizeScale += .25f;
+                    sizeScale += .15f;
                     UpdateLocalScreen();
                 };
                 var buttPickup = category2.AddToggle("Pickupable", "Toggles pickup of the local screen", pickupable);
@@ -205,12 +209,12 @@ namespace VideoRemote
             }
         }
 
-        
+
 
         private static void SaveUrl(ViewManagerVideoPlayer vp)
         {
 
-            if(vp.videoUrl.text != null)
+            if (vp.videoUrl.text != null)
             {
                 if (!File.Exists(FolderRoot + FolderConfig))
                 {
@@ -236,14 +240,14 @@ namespace VideoRemote
             {
                 MelonLogger.Msg("There was nothing to save.");
             }
-               
+
         }
 
 
         private static void AddButton(CVRVideoPlayer CVRvp, ViewManagerVideoPlayer vp)
         {
-
-            var button = PageCategory.AddButton("Video Player \n (Hover)", "VideoPlayerModButton", CVRvp.playerId);
+            var dist = Math.Abs(Vector3.Distance(CVRvp.gameObject.transform.position, Camera.main.transform.position)).ToString("F2").TrimEnd('0');
+            var button = PageCategory.AddButton("Video Player \n (Hover)", "VideoPlayerModVideoPlayer", $"{Utils.GetPath(CVRvp.gameObject.transform)}<p>Distance: {dist}");// | {CVRvp.playerId}");
             button.OnPress += () =>
             {
                 VideoPlayerSelected = vp;
@@ -283,11 +287,127 @@ namespace VideoRemote
             }
         }
 
-        public static void OnVideoPlayersFolderOpen(string targetPage, string lastPage)
+        private static void PopulateAdvancedButtons()
+        { //Doing this way so the button states always show the current value from the video player
+            if (permissionButt != null) permissionButt.Delete();
+            if (networkSyncButt != null) networkSyncButt.Delete();
+            if (audioModeButt != null) audioModeButt.Delete();
+            if (button4 != null) button4.Delete();
+            {
+                var current = (VideoPlayerSelected != null) ? VideoPlayerSelected.videoPlayer.ControlPermission.ToString() : "None Selected";
+                var butt = AdvancedOptions.AddButton($"Permission: {current}", "VideoPlayerModKeys", $"Toggles the video player permission between Everyone and InstanceModerators");
+                butt.OnPress += () =>
+                {
+                    if (VideoPlayerSelected != null)
+                    {
+                        VideoPlayerUtils.ControlPermission setTo = VideoPlayerUtils.ControlPermission.InstanceOwner;
+                        if (VideoPlayerSelected.videoPlayer.ControlPermission == VideoPlayerUtils.ControlPermission.Everyone)
+                            setTo = VideoPlayerUtils.ControlPermission.InstanceModerators;
+                        else
+                            setTo = VideoPlayerUtils.ControlPermission.Everyone;
+
+                        VideoPlayerSelected.videoPlayer.SetControlPermission(setTo);
+                        butt.ButtonText = $"Permission: {setTo}";
+                    }
+                    else
+                    {
+                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 2);
+                        MelonLogger.Msg("Video Player Not Selected or does not exist.");
+                    }
+                };
+                permissionButt = butt;
+            }
+            {
+                var butt = AdvancedOptions.AddToggle("Network Sync", "Toggles Network Sync to state", true);
+                butt.OnValueUpdated += action =>
+                {
+                    if (VideoPlayerSelected != null)
+                    {
+                        VideoPlayerSelected.videoPlayer.SetNetworkSync(action);
+                    }
+                    else
+                    {
+                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 3);
+                        MelonLogger.Msg("Video Player Not Selected or does not exist.");
+                    }
+                };
+                networkSyncButt = butt;
+            }
+            {
+                var current = (VideoPlayerSelected != null) ? VideoPlayerSelected.videoPlayer.audioPlaybackMode.ToString() : "None Selected";
+                var butt = AdvancedOptions.AddButton($"Audio Mode: {current}", "VideoPlayerModSound", $"Toggles audio mode between Direct, AudioSource, RoomScale<p>Currently: {current}");
+                butt.OnPress += () =>
+                {
+                    if (VideoPlayerSelected != null)
+                    {
+                        try
+                        {
+                            switch (VideoPlayerSelected.videoPlayer.audioPlaybackMode)
+                            {
+                                case VideoPlayerUtils.AudioMode.Direct: VideoPlayerSelected.videoPlayer.SetAudioMode(VideoPlayerUtils.AudioMode.AudioSource); break;
+                                case VideoPlayerUtils.AudioMode.AudioSource: VideoPlayerSelected.videoPlayer.SetAudioMode(VideoPlayerUtils.AudioMode.RoomScale); break;
+                                case VideoPlayerUtils.AudioMode.RoomScale: VideoPlayerSelected.videoPlayer.SetAudioMode(VideoPlayerUtils.AudioMode.Direct); break;
+                                default: VideoPlayerSelected.videoPlayer.SetAudioMode(VideoPlayerUtils.AudioMode.AudioSource); break;
+                            }
+                            butt.ButtonText = $"Audio Mode: {VideoPlayerSelected.videoPlayer.audioPlaybackMode}";
+                            butt.ButtonTooltip = $"Toggles audio mode between Direct, AudioSource, RoomScale<p>Currently: {VideoPlayerSelected.videoPlayer.audioPlaybackMode}";
+                        }
+                        catch (System.Exception ex) { 
+                            MelonLogger.Error($"Error when changing video audio source\n" + ex.ToString());
+                            butt.ButtonText = $"Audio Mode: Error";
+                            QuickMenuAPI.ShowAlertToast("Error when changing video audio source.", 3);
+                        }
+                    }
+                    else
+                    {
+                        QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 2);
+                        MelonLogger.Msg("Video Player Not Selected or does not exist.");
+                    }
+                };
+                audioModeButt = butt;
+            }
+
+            button4 = AdvancedOptions.AddButton("Save URL", "VideoPlayerModSave", $"Stores the current video URL into the ChilloutVR/{FolderRoot} Folder.");
+            button4.OnPress += () =>
+            {
+                if (VideoPlayerSelected != null)
+                {
+                    SaveUrl(VideoPlayerSelected);
+                    QuickMenuAPI.ShowAlertToast($"Saved URL! Located in ChilloutVR/{FolderRoot}{FolderConfig}", 3);
+                    MelonLogger.Msg($"Saved URL! Located in ChilloutVR/{FolderRoot}{FolderConfig}");
+                }
+                else
+                {
+                    QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 2);
+                    MelonLogger.Msg("Video Player Not Selected or does not exist.");
+                }
+
+            };
+        }
+        public static void OnPageOpen(string targetPage, string lastPage)
         {
             if (targetPage == VideoFolderString)
             {
                 PopulateVideoList();
+            }
+            if (targetPage == MainPageString)
+            {
+                PopulateAdvancedButtons();
+                if (VideoPlayerSelected != null)
+                {
+                    volumeSilder.SetSliderValue(VideoPlayerSelected.videoPlayer.playbackVolume);
+                }
+            }
+        }
+        public static void OnPageBack(string targetPage, string lastPage)
+        {
+            if (targetPage == MainPageString)
+            {
+                PopulateAdvancedButtons();
+                if (VideoPlayerSelected != null)
+                {
+                    volumeSilder.SetSliderValue(VideoPlayerSelected.videoPlayer.playbackVolume);
+                }
             }
         }
 
@@ -334,6 +454,18 @@ namespace VideoRemote
                 localScreen.transform.localScale = new Vector3(1.777f * sizeScale / 10f, 1f * sizeScale / 10f, 1f * sizeScale / 10f);
                 localScreen.GetComponent<CVRPickupObject>().enabled = pickupable;
             }
+        }
+    }
+
+    public static class Utils
+    {
+        public static string GetPath(this Transform current)
+        { //http://answers.unity.com/answers/261847/view.html
+            if (current.parent == null)
+                return "World:" + current.name;
+            if (current.name.Contains("_CVRSpawnable"))
+                return "Prop:";
+            return current.parent.GetPath() + "/ " + current.name;
         }
     }
 }
