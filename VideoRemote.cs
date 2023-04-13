@@ -21,19 +21,20 @@ namespace VideoRemote
     {
         public const string Name = "Video Remote";
         public const string Author = "Shin, Nirvash";
-        public const string Version = "1.1.1";
+        public const string Version = "1.1.2";
         public const string Description = "This allows you to use the video player with the menu.";
         public const string DownloadLink = "https://github.com/DjShinter/VideoRemote/releases";
     }
     public sealed class VideoRemoteMod : MelonMod
     {
-        private static Category PageCategory, AdvancedOptions;
+        private static Category PageCategory, AdvancedOptions, videoName;
         private static SliderFloat volumeSilder;
         private static ToggleButton networkSyncButt;
         private static Button permissionButt, audioModeButt, button4;
         private static string VideoFolderString, MainPageString;
         private static readonly List<Button> SavedButtons = new();
         private static readonly List<ViewManagerVideoPlayer> SavedVP = new();
+        private static string lastQMPage = "";
 
         public static bool _initalized = new();
         private static ViewManagerVideoPlayer VideoPlayerSelected = new();
@@ -61,14 +62,16 @@ namespace VideoRemote
             }
         }
 
-
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
         {
             if (SceneManager.GetActiveScene().name == "Init")
             {
                 if (!_initalized)
+                {
                     _initalized = true;
-                SetupIcons();
+                    SetupIcons();
+                    HarmonyInstance.Patch(typeof(CVR_MenuManager).GetMethod(nameof(CVR_MenuManager.ToggleQuickMenu)), null, new HarmonyMethod(typeof(VideoRemoteMod).GetMethod(nameof(QMtoggle), BindingFlags.NonPublic | BindingFlags.Static)));
+                }
             }
             DeleteAllButtons();
             VideoPlayerSelected = null;
@@ -104,8 +107,9 @@ namespace VideoRemote
                 };
                 MainPageString = CustomPage.ElementID;
 
-                var category = CustomPage.AddCategory("Video Remote Controls");
-                var Folder = category.AddPage("Select Video Player", "VideoPlayerModLogo", "Video Players in the World List", "VideoRemoteMod");
+                videoName = CustomPage.AddCategory("");
+                var category = videoName;
+                var Folder = category.AddPage("Select Video Player", "VideoPlayerModLogo", "List Video Players in the World", "VideoRemoteMod");
                 VideoFolderString = Folder.ElementID;
                 var FolderCategory = Folder.AddCategory("Video Players In World");
                 PageCategory = FolderCategory;
@@ -152,6 +156,7 @@ namespace VideoRemote
                         QuickMenuAPI.ShowConfirm("Confirm", "Paste and Play Video?", () =>
                         {
                             VideoPlayerSelected.PasteAndPlay();
+                            VideoRemoteMod vidMod = new VideoRemoteMod(); MelonCoroutines.Start(vidMod.SetCurrentVideoNameDelay());
                         }, () => { }, "Yes", "No");
                     }
                     else
@@ -210,10 +215,8 @@ namespace VideoRemote
         }
 
 
-
         private static void SaveUrl(ViewManagerVideoPlayer vp)
         {
-
             if (vp.videoUrl.text != null)
             {
                 if (!File.Exists(FolderRoot + FolderConfig))
@@ -228,8 +231,7 @@ namespace VideoRemote
                 {
                     if (File.Exists(FolderRoot + FolderConfig))
                     {
-                        string vidname = vp.videoName.text;
-                        vidname = vidname.Remove(0, 26);
+                        string vidname = Utils.VideoNameFormat(vp);
 
                         using StreamWriter sw = File.AppendText(FolderRoot + FolderConfig);
                         sw.WriteLine(DateTime.Now + " " + vidname + " " + vp.videoUrl.text);
@@ -240,14 +242,12 @@ namespace VideoRemote
             {
                 MelonLogger.Msg("There was nothing to save.");
             }
-
         }
-
 
         private static void AddButton(CVRVideoPlayer CVRvp, ViewManagerVideoPlayer vp)
         {
             var dist = Math.Abs(Vector3.Distance(CVRvp.gameObject.transform.position, Camera.main.transform.position)).ToString("F2").TrimEnd('0');
-            var button = PageCategory.AddButton("Video Player \n (Hover)", "VideoPlayerModVideoPlayer", $"{Utils.GetPath(CVRvp.gameObject.transform)}<p>Distance: {dist}");// | {CVRvp.playerId}");
+            var button = PageCategory.AddButton("Video Player \n (Hover)", "VideoPlayerModVideoPlayer", $"Video:{Utils.VideoNameFormat(vp)}, Distance:{dist}<p>{Utils.GetPath(CVRvp.gameObject.transform)}");// | {CVRvp.playerId}");
             button.OnPress += () =>
             {
                 VideoPlayerSelected = vp;
@@ -266,7 +266,6 @@ namespace VideoRemote
                     button.Delete();
                 }
             }
-
         }
 
         private static void PopulateVideoList()
@@ -381,34 +380,56 @@ namespace VideoRemote
                     QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 2);
                     MelonLogger.Msg("Video Player Not Selected or does not exist.");
                 }
-
             };
         }
+
+        private static void SetCurrentVideoName()
+        {
+            videoName.CategoryName = (VideoPlayerSelected != null) ? "Playing: " + Utils.VideoNameFormat(VideoPlayerSelected) : "No video player selected";
+        }
+        System.Collections.IEnumerator SetCurrentVideoNameDelay()
+        {//Lazy way to set the name after letting the video load
+            int i = 0;
+            while (i <= 10)
+            {
+                i++;
+                yield return new WaitForSecondsRealtime(1);
+                SetCurrentVideoName();
+            }
+        }
+
+        private static void RefreshMainPage()
+        {
+            //MelonLogger.Msg(lastQMPage);
+            if (lastQMPage == MainPageString)
+            {
+                PopulateAdvancedButtons();
+                SetCurrentVideoName();
+                if (VideoPlayerSelected != null)
+                {
+                    volumeSilder.SetSliderValue(VideoPlayerSelected.videoPlayer.playbackVolume);
+                }
+            }
+        }
+        //So many methods to make sure this refreshes on change
         public static void OnPageOpen(string targetPage, string lastPage)
         {
             if (targetPage == VideoFolderString)
             {
                 PopulateVideoList();
             }
-            if (targetPage == MainPageString)
-            {
-                PopulateAdvancedButtons();
-                if (VideoPlayerSelected != null)
-                {
-                    volumeSilder.SetSliderValue(VideoPlayerSelected.videoPlayer.playbackVolume);
-                }
-            }
+                
+            lastQMPage = targetPage;  
+            RefreshMainPage();
         }
         public static void OnPageBack(string targetPage, string lastPage)
         {
-            if (targetPage == MainPageString)
-            {
-                PopulateAdvancedButtons();
-                if (VideoPlayerSelected != null)
-                {
-                    volumeSilder.SetSliderValue(VideoPlayerSelected.videoPlayer.playbackVolume);
-                }
-            }
+            lastQMPage = targetPage;
+            RefreshMainPage();
+        }
+        private static void QMtoggle(bool __0)
+        {
+            if (__0) RefreshMainPage();
         }
 
         private static void ToggleLocalScreen()
@@ -446,7 +467,6 @@ namespace VideoRemote
                 localScreen = _obj;
             }
         }
-
         private static void UpdateLocalScreen()
         {
             if (!localScreen?.Equals(null) ?? false)
@@ -454,18 +474,6 @@ namespace VideoRemote
                 localScreen.transform.localScale = new Vector3(1.777f * sizeScale / 10f, 1f * sizeScale / 10f, 1f * sizeScale / 10f);
                 localScreen.GetComponent<CVRPickupObject>().enabled = pickupable;
             }
-        }
-    }
-
-    public static class Utils
-    {
-        public static string GetPath(this Transform current)
-        { //http://answers.unity.com/answers/261847/view.html
-            if (current.parent == null)
-                return "World:" + current.name;
-            if (current.name.Contains("_CVRSpawnable"))
-                return "Prop:";
-            return current.parent.GetPath() + "/ " + current.name;
         }
     }
 }
