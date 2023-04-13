@@ -82,6 +82,9 @@
       <HintPath>Libs\UnityEngine.InputModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+	<Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>Libs\UnityEngine.PhysicsModule.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="VideoRemote.cs" />
