@@ -22,8 +22,43 @@ namespace VideoRemote
 
         public static string VideoNameFormat(ViewManagerVideoPlayer vidPlay)
         {
+            if (vidPlay?.videoName?.text?.Length < 26)
+                return "No video playing";
             var name = vidPlay.videoName.text.Remove(0, 26);
             return (name != "eo selected") ? name : "No video playing";
+        }
+
+        public static string SkipCatSwitch(string value)
+        {
+            switch (value)
+            {
+                case "sponsor": return "Sponsor";
+                case "selfpromo": return "Selfpromo";
+                case "interaction": return "Interaction";
+                case "intro": return "Intro";
+                case "outro": return "Outro";
+                case "preview": return "Preview";
+                case "music_offtopic": return "Music Offtopic";
+                case "poi_highlight": return "Highlight";
+                case "chapter": return "Chapter";
+                default: return $"Unknown: {value}";
+            }
+        }
+
+        public static string FormatTime(float seconds)
+        {
+            TimeSpan time = TimeSpan.FromSeconds(seconds);
+            return time.ToString(@"hh\:mm\:ss");
+        }
+
+        public static DateTime ParseDate(string value, string format)
+        {
+            if (DateTime.TryParseExact(value, format, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dt))
+            {
+                return dt;
+            }
+            MelonLogger.Msg(ConsoleColor.Red, $"Date Error: {value}");
+            return DateTime.MinValue;
         }
     }
 }
