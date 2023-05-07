@@ -1,11 +1,32 @@
+
 <p align="center">
-  <img src="https://i.imgur.com/6htHu3b.png" />
+  <img src="https://user-images.githubusercontent.com/81605232/235234813-e054992e-9afb-4eaa-b87e-ea55f8dbf88b.png" />
 </p>
 
 # Video Remote Mod
 
 This is a **MelonLoader** Mod for **ChilloutVR**, 
-The **Video Remote mod** adds QOL changes to **ChilloutVR** being able to have an easier time to do certain functions while in VR & Desktop.
+The **Video Remote mod** adds QOL changes to **ChilloutVR** to have an easier time to do certain functions to VideoPlayers while in VR & Desktop.
+
+### Main features
+
+
+-  Controls for VideoPlayers in the world
+	- Shows currently playing video name
+	- Play, Pause, Adjust volume
+	- Paste video URLs from Clipboard
+	- Change permission between 'Everyone' and 'Instance Moderators' 
+	- Network Sync Toggle
+	- Audio Source switch between, 'Audio Source', 'Room Scale', 'Direct' (2D) 
+	- Reload current video at current timestamp. (Useful for Prop video players, so you can reload the current video for late joiners)
+- SponsorBlock's API integration for auto skipping sponsor segments and more! 
+   - > [SponsorBlock ](https://sponsor.ajay.app/)is web browser extension for Youtube which has public API for adding to other platforms
+   - This requires you to select the desired video player and in the 'SponsorBlock' menu toggle it to 'Enabled'.  After a moment the menu will populate with any found events from the API and if any of the options are enabled under  'Segments types to skip', the mod will automatically skip past them once the segment is reached. 
+ - Save/Load URLs from a file
+ - Local Video player Screen
+	 - Most useful when the video player in a world is in an inconvenient spot, or you just want to lay back and still watch. 
+	 - Includes options to adjust the size and toggle pickup.
+
 
 **ChilloutVR website**: https://abinteractive.net
 
