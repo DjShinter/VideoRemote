@@ -356,7 +356,7 @@ namespace VideoRemote
             if (SponsorSkipEvents != null && SponsorSkipEvents.IsGenerated) SponsorSkipEvents.ClearChildren();
             if (savedURLsPage != null && savedURLsPage.IsGenerated) savedURLsPage.ClearChildren();
 
-            AdvOptionsPage = AdvancedOptions.AddPage("VideoPlayer Options", "VideoPlayerModAdvSettings2", "Set Permissions, Network Sync, Audio Mode, Reload current video", "VideoRemoteMod");
+            AdvOptionsPage = AdvancedOptions.AddPage("VideoPlayer Options", "VideoPlayerModAdvSettings2", "Set Permissions, Network Sync, Audio Mode, Reload current video, Timestamp Controls, Info and Debug", "VideoRemoteMod");
             AdvOptionsString = AdvOptionsPage.ElementID;
             {
                 var advSubPageCat = AdvOptionsPage.AddCategory("");
@@ -665,13 +665,18 @@ namespace VideoRemote
                         if (VideoPlayerSelected.videoPlayer.currentlySelectedPlaylist != null)
                             str2 = VideoPlayerSelected.videoPlayer.currentlySelectedPlaylist.playlistTitle;
                         var videoPlayer = VideoPlayerSelected.videoPlayer.VideoPlayer;
-                        var debugInfo = string.Format("Video title: {0}\r\nPlaylist title: {1}\r\nVideo FPS: {2} Player FPS: {3}\r\nConnection: {4}\r\nVideo Player Time: " +
-                            "{5}\r\nAudio Player Time: {6}\r\nVideo Texture Res: {7} x {8}\r\nRender Texture Res: {9} x {10}\r\nVideo Codec: {11}\r\nAudio Mode: {12}\r\nAudio Channels: " +
-                            "{13}\r\n", str1.Truncate(25), str2.Truncate(25), videoPlayer.Info.VideoMetaData.GetVideoFps(), videoPlayer.Info.GetPlayerFps(),
-                            videoPlayer.Info.IsConnectionLost() ? (object)"Lost" : "Connected", (object)videoPlayer.Info.Time, videoPlayer.Info.AudioTime,
-                            videoPlayer.Info.VideoMetaData.GetVideoWidth(), videoPlayer.Info.VideoMetaData.GetVideoHeight(), VideoPlayerSelected.videoPlayer.ProjectionTexture.width,
-                            VideoPlayerSelected.videoPlayer.ProjectionTexture.height, GetVideoCodec(), VideoPlayerSelected.videoPlayer.audioPlaybackMode,
-                            videoPlayer.Info.VideoMetaData.GetAudioChannels());
+
+                        DebugPage.AddCategory($"Video title: {str1.Truncate(25)}");
+                        DebugPage.AddCategory($"Playlist title: {str2.Truncate(25)}");
+                        DebugPage.AddCategory($"Video FPS: {videoPlayer.Info.VideoMetaData.GetVideoFps()} Player FPS: {videoPlayer.Info.GetPlayerFps()}");
+                        DebugPage.AddCategory($"Connection: {(videoPlayer.Info.IsConnectionLost() ? "Lost" : "Connected")}");
+                        DebugPage.AddCategory($"Video Player Time: {videoPlayer.Info.Time}");
+                        DebugPage.AddCategory($"Audio Player Time: {videoPlayer.Info.AudioTime}");
+                        DebugPage.AddCategory($"Video Texture Res: {videoPlayer.Info.VideoMetaData.GetVideoWidth()} x {videoPlayer.Info.VideoMetaData.GetVideoHeight()}");
+                        DebugPage.AddCategory($"Render Texture Res: {VideoPlayerSelected.videoPlayer.ProjectionTexture.width} x {VideoPlayerSelected.videoPlayer.ProjectionTexture.height}");
+                        DebugPage.AddCategory($"Video Codec: {GetVideoCodec()}");
+                        DebugPage.AddCategory($"Audio Mode: {VideoPlayerSelected.videoPlayer.audioPlaybackMode}");
+                        DebugPage.AddCategory($"Audio Channels: {videoPlayer.Info.VideoMetaData.GetAudioChannels()}");
 
                         string GetVideoCodec()
                         {
@@ -683,17 +688,15 @@ namespace VideoRemote
                                 return "Unknown";
                             if (!string.IsNullOrEmpty(output.VideoCodec))
                                 return output.VideoCodec;
-                            foreach (YoutubeDlVideoFormat requestedFormat in output.requestedFormats)
-                            {
-                                if (requestedFormat.Format != null && !requestedFormat.Format.Contains("audio only") && requestedFormat.VideoCodec != null)
-                                    return requestedFormat.VideoCodec;
-                            }
+                         // This can get stuck returning nothing, which due to the way this mod is made, breaks the menu generation 
+                         //   foreach (YoutubeDlVideoFormat requestedFormat in output.requestedFormats)
+                         //   {
+                         //       MelonLogger.Msg("60");
+                         //       if (requestedFormat.Format != null && !requestedFormat.Format.Contains("audio only") && requestedFormat.VideoCodec != null)
+                         //           return requestedFormat.VideoCodec;
+                         //       MelonLogger.Msg("70");
+                         //   }
                             return "Unknown";
-                        }
-
-                        foreach (var infoLine in debugInfo.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries))
-                        {
-                            DebugPage.AddCategory(infoLine);
                         }
                     }
                 }
