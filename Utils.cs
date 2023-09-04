@@ -15,7 +15,7 @@ namespace VideoRemote
         { //http://answers.unity.com/answers/261847/view.html
             if (current.parent == null)
                 return "World:" + current.name;
-            if (current.name.Contains("_CVRSpawnable"))
+            if (current.name.Contains("CVRSpawnable_"))
                 return "Prop:";
             return current.parent.GetPath() + "/ " + current.name;
         }
@@ -23,9 +23,14 @@ namespace VideoRemote
         { //http://answers.unity.com/answers/261847/view.html
             if (current.parent == null)
                 return "World";
-            if (current.name.Contains("_CVRSpawnable"))
+            if (current.name.Contains("CVRSpawnable_"))
                 return "Prop";
             return current.parent.GetPlayerType();
+        }
+
+        public static bool IsVideoPlayerValid(ViewManagerVideoPlayer vidPlay)
+        {
+            return !(vidPlay?.videoPlayer?.VideoPlayer.Equals(null) ?? true); //Todo: figure out if the video player still exists. Checking VidPlay.Gameobject just never returns anything
         }
 
         public static string VideoNameFormat(ViewManagerVideoPlayer vidPlay)
