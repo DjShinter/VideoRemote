@@ -30,7 +30,7 @@ namespace VideoRemote
 
         public static bool IsVideoPlayerValid(ViewManagerVideoPlayer vidPlay)
         {
-            return !(vidPlay?.videoPlayer?.VideoPlayer.Equals(null) ?? true); //Todo: figure out if the video player still exists. Checking VidPlay.Gameobject just never returns anything
+            return !(vidPlay?.videoPlayer?.VideoPlayer.Equals(null) ?? true) && (vidPlay != null); 
         }
 
         public static string VideoNameFormat(ViewManagerVideoPlayer vidPlay)
