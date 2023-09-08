@@ -19,6 +19,7 @@ The **Video Remote mod** adds QOL changes to **ChilloutVR** to have an easier ti
 	- Network Sync Toggle
 	- Audio Source switch between, 'Audio Source', 'Room Scale', 'Direct' (2D) 
 	- Reload current video at current timestamp. (Useful for Prop video players, so you can reload the current video for late joiners)
+	- Timestamp controls, Info and Debug pages and more!   
 - SponsorBlock's API integration for auto skipping sponsor segments and more! 
    - > [SponsorBlock ](https://sponsor.ajay.app/)is web browser extension for Youtube which has public API for adding to other platforms
    - This requires you to select the desired video player and in the 'SponsorBlock' menu toggle it to 'Enabled'.  After a moment the menu will populate with any found events from the API and if any of the options are enabled under  'Segments types to skip', the mod will automatically skip past them once the segment is reached. 

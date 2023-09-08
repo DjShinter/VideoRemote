@@ -15,9 +15,22 @@ namespace VideoRemote
         { //http://answers.unity.com/answers/261847/view.html
             if (current.parent == null)
                 return "World:" + current.name;
-            if (current.name.Contains("_CVRSpawnable"))
+            if (current.name.Contains("CVRSpawnable_"))
                 return "Prop:";
             return current.parent.GetPath() + "/ " + current.name;
+        }
+        public static string GetPlayerType(this Transform current)
+        { //http://answers.unity.com/answers/261847/view.html
+            if (current.parent == null)
+                return "World";
+            if (current.name.Contains("CVRSpawnable_"))
+                return "Prop";
+            return current.parent.GetPlayerType();
+        }
+
+        public static bool IsVideoPlayerValid(ViewManagerVideoPlayer vidPlay)
+        {
+            return !(vidPlay?.videoPlayer?.VideoPlayer.Equals(null) ?? true) && (vidPlay != null); 
         }
 
         public static string VideoNameFormat(ViewManagerVideoPlayer vidPlay)
@@ -49,6 +62,18 @@ namespace VideoRemote
         {
             TimeSpan time = TimeSpan.FromSeconds(seconds);
             return time.ToString(@"hh\:mm\:ss");
+        }
+
+        public static int GetTimeSeg(float seconds, string type)
+        {
+            TimeSpan time = TimeSpan.FromSeconds(seconds);
+            switch (type)
+            {
+                case "hour": return int.Parse(time.ToString(@"hh"));
+                case "min": return int.Parse(time.ToString(@"mm"));
+                case "sec": return int.Parse(time.ToString(@"ss"));
+                default: return 0;
+            }
         }
 
         public static DateTime ParseDate(string value, string format)
