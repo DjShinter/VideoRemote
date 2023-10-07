@@ -25,6 +25,8 @@ namespace VideoRemote
                 return "World";
             if (current.name.Contains("CVRSpawnable_"))
                 return "Prop";
+            if (current.name.Contains("_CVRSpawnable"))
+                return "Prop";
             return current.parent.GetPlayerType();
         }
 
@@ -33,10 +35,34 @@ namespace VideoRemote
             return !(vidPlay?.videoPlayer?.VideoPlayer.Equals(null) ?? true) && (vidPlay != null); 
         }
 
+        public static string VideoState(ViewManagerVideoPlayer vidPlay)
+        {
+            if (vidPlay?.videoName?.text.Equals(null) ?? true)
+                return "";
+
+            if (vidPlay.videoName.text.Contains("Currently Playing:"))
+                return "Playing: ";
+            if (vidPlay.videoName.text.Contains("Currently Paused:"))
+                return "Paused: ";
+
+            return "";
+        }
+
         public static string VideoNameFormat(ViewManagerVideoPlayer vidPlay)
         {
-            if (vidPlay?.videoName?.text?.Length < 26)
+            //"Currently Paused:"
+            //"Currently Playing:"
+            if (vidPlay?.videoName?.text.Equals(null) ?? true)
+                return "No video player";
+
+            if (vidPlay.videoName.text.Length < 25)
                 return "No video playing";
+
+            if (vidPlay.videoName.text.Contains("Currently Playing:"))
+                return vidPlay.videoName.text.Remove(0, 26);
+            if (vidPlay.videoName.text.Contains("Currently Paused:"))
+                return vidPlay.videoName.text.Remove(0, 25);
+
             var name = vidPlay.videoName.text.Remove(0, 26);
             return (name != "eo selected") ? name : "No video playing";
         }

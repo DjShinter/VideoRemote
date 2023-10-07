@@ -23,7 +23,7 @@ using ABI_RC.Core.UI;
 using ABI_RC.VideoPlayer;
 using ABI_RC.Core.Networking;
 using ABI_RC.Core.Savior;
-
+using System.Diagnostics;
 
 
 namespace VideoRemote
@@ -32,11 +32,11 @@ namespace VideoRemote
     {
         public const string Name = "Video Remote";
         public const string Author = "Shin, Nirvash";
-        public const string Version = "1.2.4";
+        public const string Version = "1.2.5";
         public const string Description = "This allows you to use the video player with the menu.";
         public const string DownloadLink = "https://github.com/Nirv-git/VideoRemote/releases";
     }
-    public sealed class VideoRemoteMod : MelonMod
+    public class VideoRemoteMod : MelonMod
     {
         public static VideoRemoteMod Instance;
 
@@ -46,18 +46,22 @@ namespace VideoRemote
         public static MelonPreferences_Entry<bool> sponsorSkip_selfpromo;
         public static MelonPreferences_Entry<bool> sponsorSkip_interaction;
         public static MelonPreferences_Entry<bool> sponsorSkip_intro;
+        public static MelonPreferences_Entry<bool> videoHistory_En;
 
         private static Category VideoPlayerListMain, VideoPlayerList, AdvancedOptions, videoName;
-        private static Page AdvOptionsPage, TimeStampPage, LogPage, DebugPage, SponsorSkipEvents, savedURLsPage;
+        private static Page AdvOptionsPage, TimeStampPage, LogPage, DebugPage, SponsorSkipEvents, savedURLsPage, URLHistoryPage;
         private static SliderFloat volumeSilder;
-        private static string VideoFolderString, MainPageString, SponsorSkipEventsString, AdvOptionsString, TimeStampPageString, LogPageString, DebugPageString, savedURLsPageString;
+        private static string VideoFolderString, MainPageString, SponsorSkipEventsString, AdvOptionsString, TimeStampPageString, LogPageString, DebugPageString, savedURLsPageString, URLHistoryPageString;
         private static string lastQMPage = "";
 
         public static bool _initalized = new();
         private static ViewManagerVideoPlayer VideoPlayerSelected = new();
         private const string FolderRoot = "UserData/VideoRemote/";
-        private const string FolderConfig = "savedURLsList.txt";
+        private const string savedURLsFileName = "savedURLsList.txt";
+        private const string histroyURLFileName = "historyURLsList.txt";
         public static Dictionary<string, (string, DateTime)> savedURLs = new Dictionary<string, (string, DateTime)>(); //URL,(Name,Date)
+        public static List<(string, string, DateTime)> historyURLs = new List<(string, string, DateTime)>(); //URL,(Name,Date)
+
 
         private static GameObject localScreen;
         private static bool pickupable = false;
@@ -77,6 +81,8 @@ namespace VideoRemote
         private static int timeStampMin = 0;
         private static int timeStampSec = 0;
 
+        private static float historyLastCheck = 0;
+
         public override void OnInitializeMelon()
         {
             Instance = this;
@@ -86,6 +92,9 @@ namespace VideoRemote
             sponsorSkip_selfpromo = MelonPreferences.CreateEntry(catagory, nameof(sponsorSkip_selfpromo), false, "Skips Segment selfpromo");
             sponsorSkip_interaction = MelonPreferences.CreateEntry(catagory, nameof(sponsorSkip_interaction), false, "Skips Segment interaction");
             sponsorSkip_intro = MelonPreferences.CreateEntry(catagory, nameof(sponsorSkip_intro), false, "Skips Segment intro");
+            videoHistory_En = MelonPreferences.CreateEntry(catagory, nameof(videoHistory_En), true, "Record history of played URLs");
+
+            //videoHistory_En.OnValueChanged += VideoHistoryToggle;
 
             if (!RegisteredMelons.Any(x => x.Info.Name.Equals("BTKUILib") && x.Info.SemanticVersion != null && x.Info.SemanticVersion.CompareTo(new SemVersion(1)) >= 0))
             {
@@ -111,7 +120,7 @@ namespace VideoRemote
                 {
                     _initalized = true;
                     SetupIcons();
-                    HarmonyInstance.Patch(typeof(CVR_MenuManager).GetMethod(nameof(CVR_MenuManager.ToggleQuickMenu)), null, new HarmonyMethod(typeof(VideoRemoteMod).GetMethod(nameof(QMtoggle), BindingFlags.NonPublic | BindingFlags.Static)));
+                    //HarmonyInstance.Patch(typeof(CVR_MenuManager).GetMethod(nameof(CVR_MenuManager.ToggleQuickMenu)), null, new HarmonyMethod(typeof(VideoRemoteMod).GetMethod(nameof(QMtoggle), BindingFlags.NonPublic | BindingFlags.Static)));
                 }
             }
             VideoPlayerSelected = null;
@@ -147,6 +156,7 @@ namespace VideoRemote
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModRes", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Res.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModEventLog", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.EventLog.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModRemoveLink", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.RemoveLink.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModURLHistory", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.URLHistory.png"));
 
             SetupUI();
             QuickMenuAPI.OnOpenedPage += OnPageOpen;
@@ -176,6 +186,7 @@ namespace VideoRemote
                     if (VideoPlayerSelected != null)
                     {
                         VideoPlayerSelected.Play();
+                        MelonCoroutines.Start(Instance.SetCurrentVideoNameDelay());
                     }
                     else
                     {
@@ -190,6 +201,7 @@ namespace VideoRemote
                     if (VideoPlayerSelected != null)
                     {
                         VideoPlayerSelected.Pause();
+                        MelonCoroutines.Start(Instance.SetCurrentVideoNameDelay());
                     }
                     else
                     {
@@ -267,20 +279,25 @@ namespace VideoRemote
             if (!String.IsNullOrWhiteSpace(vp.videoUrl.text))
             {
                 string vidname = Utils.VideoNameFormat(vp);
-                if (!File.Exists(FolderRoot + FolderConfig))
+                if (!File.Exists(FolderRoot + savedURLsFileName))
                 {
-                    using StreamWriter sw = File.CreateText(FolderRoot + FolderConfig);
+                    using StreamWriter sw = File.CreateText(FolderRoot + savedURLsFileName);
                     sw.WriteLine(DateTime.Now.ToString(dateFormatOut) + " ␟ " + vidname + " ␟ " + vp.videoUrl.text);
                 }
                 else
                 {
-                    if (File.Exists(FolderRoot + FolderConfig))
+                    if (File.Exists(FolderRoot + savedURLsFileName))
                     {
-                        using StreamWriter sw = File.AppendText(FolderRoot + FolderConfig);
+                        using StreamWriter sw = File.AppendText(FolderRoot + savedURLsFileName);
                         sw.WriteLine(DateTime.Now.ToString(dateFormatOut) + " ␟ " + vidname + " ␟ " + vp.videoUrl.text);
                     }
                 }
                 if(!savedURLs.ContainsKey(vp.videoUrl.text)) savedURLs.Add(vp.videoUrl.text, (vidname, DateTime.Now));
+                else
+                {
+                    savedURLs.Remove(vp.videoUrl.text);
+                    savedURLs.Add(vp.videoUrl.text, (vidname, DateTime.Now));
+                }
             }
             else
             {
@@ -296,7 +313,7 @@ namespace VideoRemote
                 savedURLs.Remove(videoUrl);
                 try
                 {
-                     File.WriteAllLines(FolderRoot + FolderConfig, savedURLs.Select(p => string.Format("{0} ␟ {1} ␟ {2}", p.Value.Item2.ToString(dateFormatOut), p.Value.Item1, p.Key)), Encoding.UTF8);
+                     File.WriteAllLines(FolderRoot + savedURLsFileName, savedURLs.Select(p => string.Format("{0} ␟ {1} ␟ {2}", p.Value.Item2.ToString(dateFormatOut), p.Value.Item1, p.Key)), Encoding.UTF8);
                 }
                 catch (Exception ex) { MelonLogger.Error("Error writing video list after removing URL\n" + ex.ToString()); }
             }
@@ -305,11 +322,11 @@ namespace VideoRemote
         public static void LoadURLs()
         {
             var dateFormatIn = "yyyy-MM-dd";
-            if (File.Exists(FolderRoot + FolderConfig))
+            if (File.Exists(FolderRoot + savedURLsFileName))
             {
                 try
                 {
-                    savedURLs = new Dictionary<string, (string, DateTime)>(File.ReadAllLines(FolderRoot + FolderConfig).Select(s => s.Split(new char[] { '␟' }, StringSplitOptions.RemoveEmptyEntries))
+                    savedURLs = new Dictionary<string, (string, DateTime)>(File.ReadAllLines(FolderRoot + savedURLsFileName).Select(s => s.Split(new char[] { '␟' }, StringSplitOptions.RemoveEmptyEntries))
                       .Where(x => x.Length == 3).ToLookup(p => p[2].Trim(), p => (p[1].Trim(), Utils.ParseDate(p[0].Trim(), dateFormatIn)))
                       .ToDictionary(p => p.Key, p => p.First()));
                 }
@@ -372,8 +389,8 @@ namespace VideoRemote
                 if (Utils.IsVideoPlayerValid(VideoPlayerSelected))
                 {
                     SaveUrl(VideoPlayerSelected);
-                    QuickMenuAPI.ShowAlertToast($"Saved URL! Located in ChilloutVR/{FolderRoot}{FolderConfig}", 3);
-                    MelonLogger.Msg($"Saved URL! Located in ChilloutVR/{FolderRoot}{FolderConfig}");
+                    QuickMenuAPI.ShowAlertToast($"Saved URL! Located in ChilloutVR/{FolderRoot}{savedURLsFileName}", 3);
+                    MelonLogger.Msg($"Saved URL! Located in ChilloutVR/{FolderRoot}{savedURLsFileName}");
                 }
                 else
                 {
@@ -583,6 +600,20 @@ namespace VideoRemote
                 };
             }
             //
+            var advSubPageCat_3 = AdvOptionsPage.AddCategory("");
+            //    
+            {
+                URLHistoryPage = advSubPageCat_3.AddPage("URL History Page", "VideoPlayerModURLHistory", "Videos played on VideoPlayers since game start", "VideoRemoteMod");
+                URLHistoryPageString = URLHistoryPage.ElementID;
+                if (init) CreatePageURLsHistroyPage();
+            }
+            {
+                var butt = advSubPageCat_3.AddToggle("URL History", "Record URL History for Current Session", videoHistory_En.Value);
+                butt.OnValueUpdated += action =>
+                {
+                    videoHistory_En.Value = action;
+                };
+            }
         }
 
         public static void CreatePageTimeStampPage()
@@ -882,7 +913,7 @@ namespace VideoRemote
                     {
                         if (Utils.IsVideoPlayerValid(VideoPlayerSelected) && VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl == sponsorskipVideo)
                         {//Confirm this video is still on
-                            if (x.segment[1] < VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration() - 5)
+                            if (x.segment[1] > VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration() - 5)
                             { //Skip if <5 seconds from end of video
                                 MelonLogger.Msg($"|SponsorBlock| Not skipping to {Utils.FormatTime(x.segment[1])}, less than 5 seconds till end of video");
                                 QuickMenuAPI.ShowAlertToast($"Not skipping, less than 5 seconds till end of video!", 3);
@@ -952,9 +983,49 @@ namespace VideoRemote
             }
         }
 
+        public static void CreatePageURLsHistroyPage()
+        {
+            //MelonLogger.Msg("SavedUrls");
+            if (URLHistoryPage != null && URLHistoryPage.IsGenerated) URLHistoryPage.ClearChildren();
+            if (historyURLs.Count == 0)
+            {
+                URLHistoryPage.AddCategory($"No history found");
+            }
+            else
+            { //historyURLs
+                foreach (var x in historyURLs.Reverse<(string, string, DateTime)>())
+                {
+                    URLHistoryPage.AddCategory(x.Item2);
+                    var urlCat = URLHistoryPage.AddCategory(x.Item3.ToString("yyyy'-'MM'-'dd HH:mm"));
+                    urlCat.AddButton($"Play Video", "VideoPlayerModPastePlay", $"Play the video: {x.Item1}<p>{x.Item2}").OnPress += () =>
+                    {
+                        if (Utils.IsVideoPlayerValid(VideoPlayerSelected))
+                        {
+                            QuickMenuAPI.ShowConfirm("Confirm", $"Play Video?<p><p><p>{x.Item1}<p><p><p>{x.Item2}", () =>
+                            {
+                                VideoPlayerSelected.videoPlayer.SetVideoUrl(x.Item1);
+                                MelonCoroutines.Start(Instance.SetCurrentVideoNameDelay());
+                            }, () => { }, "Yes", "No");
+                        }
+                        else
+                        {
+                            QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 2);
+                            MelonLogger.Msg("Video Player Not Selected or does not exist.");
+                        }
+                    };
+
+                    urlCat.AddButton($"Save URL", "VideoPlayerModSave", $"Stores the current video URL into the ChilloutVR/{FolderRoot} Folder.").OnPress += () =>
+                    {
+                        if (!savedURLs.ContainsKey(x.Item1)) savedURLs.Add(x.Item1, (x.Item2, x.Item3));
+                    };
+                }
+            }
+        }
+
+
         private static void SetCurrentVideoName()
         {
-            videoName.CategoryName = (VideoPlayerSelected != null) ? "Playing: " + Utils.VideoNameFormat(VideoPlayerSelected) : "No video player selected";
+            videoName.CategoryName = (VideoPlayerSelected != null) ? Utils.VideoState(VideoPlayerSelected) + Utils.VideoNameFormat(VideoPlayerSelected) : "No video player selected";
         }
         System.Collections.IEnumerator SetCurrentVideoNameDelay()
         {//Lazy way to set the name after letting the video load
@@ -964,6 +1035,78 @@ namespace VideoRemote
                 i++;
                 yield return new WaitForSecondsRealtime(1);
                 SetCurrentVideoName();
+            }
+        }
+
+        public static void AllURLhistory()
+        {
+            if (Time.time < historyLastCheck + 10)
+                return;
+            try
+            {
+                var sw = Stopwatch.StartNew();
+                historyLastCheck = Time.time;
+                foreach (var CVRvp in GameObject.FindObjectsOfType<CVRVideoPlayer>())
+                {
+                    List<IVideoPlayerUi> savedvpui = Traverse.Create(CVRvp).Field("VideoPlayerUis").GetValue<List<IVideoPlayerUi>>();
+                    foreach (ViewManagerVideoPlayer vp in savedvpui.Cast<ViewManagerVideoPlayer>())
+                    {
+                        if (!Utils.IsVideoPlayerValid(vp))
+                            continue;
+
+                        if (!String.IsNullOrWhiteSpace(vp.videoUrl.text))
+                        {
+                            string vidname = Utils.VideoNameFormat(vp);
+                            var keyToCheck = vp.videoUrl.text;
+
+                            if (!historyURLs.Reverse<(string, string, DateTime)>().Take(10).Any(tuple => tuple.Item1 == keyToCheck))
+                            {
+                                historyURLs.Add((vp.videoUrl.text, vidname, DateTime.Now));
+                                SaveHistoryUrl(vidname, VideoPlayerSelected.videoUrl.text);
+                                MelonLogger.Msg($"Adding to history: {vidname} - {vp.videoUrl.text}");
+                            }
+                        }
+                    }
+                }
+                var endtime = sw.ElapsedMilliseconds;
+                MelonLogger.Msg($"Time {endtime}");
+            }
+            catch (Exception ex) { MelonLogger.Warning("Error in AllURLhistory \n" + ex.ToString()); }
+        }
+
+        public static void SingleURLhistory()
+        {
+            if (!Utils.IsVideoPlayerValid(VideoPlayerSelected))
+                return;
+            string vidname = Utils.VideoNameFormat(VideoPlayerSelected);
+            var keyToCheck = VideoPlayerSelected.videoUrl.text;
+
+            if (!historyURLs.Reverse<(string, string, DateTime)>().Take(10).Any(tuple => tuple.Item1 == keyToCheck))
+            {
+                historyURLs.Add((VideoPlayerSelected.videoUrl.text, vidname, DateTime.Now));
+                SaveHistoryUrl(vidname, VideoPlayerSelected.videoUrl.text);
+                MelonLogger.Msg($"Adding {vidname} {VideoPlayerSelected.videoUrl.text}");
+            }
+        }
+
+        private static void SaveHistoryUrl(string vidname, string url)
+        {
+            var dateFormatOut = "yyyy'-'MM'-'dd";
+            if (!String.IsNullOrWhiteSpace(url))
+            {
+                if (!File.Exists(FolderRoot + histroyURLFileName))
+                {
+                    using StreamWriter sw = File.CreateText(FolderRoot + histroyURLFileName);
+                    sw.WriteLine(DateTime.Now.ToString(dateFormatOut) + " ␟ " + vidname + " ␟ " + url);
+                }
+                else
+                {
+                    if (File.Exists(FolderRoot + histroyURLFileName))
+                    {
+                        using StreamWriter sw = File.AppendText(FolderRoot + histroyURLFileName);
+                        sw.WriteLine(DateTime.Now.ToString(dateFormatOut) + " ␟ " + vidname + " ␟ " + url);
+                    }
+                }
             }
         }
 
@@ -1025,7 +1168,7 @@ namespace VideoRemote
             }
         }
 
-        public static void RefreshPage()
+        public static void RefreshPage(bool laggyPages)
         {
             if (lastQMPage == VideoFolderString)
             {
@@ -1039,7 +1182,7 @@ namespace VideoRemote
             {
                 CreatePageSponsorSkip();
             }
-            if (lastQMPage == savedURLsPageString)
+            if (lastQMPage == savedURLsPageString && laggyPages)
             {
                 CreatePagesavedURLsPage();
             }
@@ -1055,25 +1198,31 @@ namespace VideoRemote
             {
                 CreatePageDebug();
             }
+            if (lastQMPage == URLHistoryPageString && laggyPages)
+            {
+                CreatePageURLsHistroyPage();
+                SingleURLhistory();
+            }
         }
 
         //So many methods to make sure this refreshes on change
         public static void OnPageOpen(string targetPage, string lastPage)
         {
             lastQMPage = targetPage;
-            RefreshPage();
+            RefreshPage(true);
             RefreshMainPage();
         }
         public static void OnPageBack(string targetPage, string lastPage)
         {
             lastQMPage = targetPage;
-            RefreshPage();
+            RefreshPage(true);
             RefreshMainPage();
         }
-        private static void QMtoggle(bool __0)
+        public static void QMtoggle(bool __0)
         {
             if (__0)
             {
+                RefreshPage(false);
                 RefreshMainPage();
                 //RefreshPage();
             }
@@ -1132,32 +1281,35 @@ namespace VideoRemote
         public static System.Collections.IEnumerator SponsorSkipCheck()
         {
             bool startedSkips = false;
-            while (sponsorSkip && VideoPlayerSelected?.videoPlayer?.VideoPlayer != null)
+            while (sponsorSkip)
             {
-                yield return new WaitForSeconds(1f);
-                if (VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl != lastvideo && !String.IsNullOrWhiteSpace(VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl))
+                if (Utils.IsVideoPlayerValid(VideoPlayerSelected))
                 {
-                    startedSkips = false;
-                    string newVid = VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl;
-                    lastvideo = newVid;
-                    MelonLogger.Msg($"|SponsorBlock| New video found: {newVid}");
-                    GetAsync(newVid);               
-                }
-                else if (VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl == sponsorskipVideo && !startedSkips)
-                {
-                    MelonLogger.Msg($"|SponsorBlock| Current video has skip info - {sponsorskipVideo}");
-                    //MelonLogger.Msg($"|SponsorBlock| Raw");
-                    //foreach (var x in sponsorskipResult)
-                    //{
-                    //    MelonLogger.Msg($"|SponsorBlock| {x.category} Segment: {Utils.FormatTime(x.segment[0])} - {Utils.FormatTime(x.segment[1])} Seconds:{x.segment[0]}-{x.segment[1]}");
-                    //}
+                    yield return new WaitForSeconds(1f);
+                    if (VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl != lastvideo && !String.IsNullOrWhiteSpace(VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl))
+                    {
+                        startedSkips = false;
+                        string newVid = VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl;
+                        lastvideo = newVid;
+                        MelonLogger.Msg($"|SponsorBlock| New video found: {newVid}");
+                        GetAsync(newVid);
+                    }
+                    else if (VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl == sponsorskipVideo && !startedSkips)
+                    {
+                        MelonLogger.Msg($"|SponsorBlock| Current video has skip info - {sponsorskipVideo}");
+                        //MelonLogger.Msg($"|SponsorBlock| Raw");
+                        //foreach (var x in sponsorskipResult)
+                        //{
+                        //    MelonLogger.Msg($"|SponsorBlock| {x.category} Segment: {Utils.FormatTime(x.segment[0])} - {Utils.FormatTime(x.segment[1])} Seconds:{x.segment[0]}-{x.segment[1]}");
+                        //}
 
-                    PrepSkipList();
-                    startedSkips = true;
-                    if (sponsorSkipLiveCoroutine != null) MelonCoroutines.Stop(sponsorSkipLiveCoroutine);
-                    sponsorSkipLiveCoroutine = MelonCoroutines.Start(SponsorSkipping());
+                        PrepSkipList();
+                        startedSkips = true;
+                        if (sponsorSkipLiveCoroutine != null) MelonCoroutines.Stop(sponsorSkipLiveCoroutine);
+                        sponsorSkipLiveCoroutine = MelonCoroutines.Start(SponsorSkipping());
 
-                    CreatePageSponsorSkip();
+                        CreatePageSponsorSkip();
+                    }
                 }
             }
             sponsorSkip = false;
