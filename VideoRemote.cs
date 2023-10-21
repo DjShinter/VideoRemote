@@ -32,7 +32,7 @@ namespace VideoRemote
     {
         public const string Name = "Video Remote";
         public const string Author = "Shin, Nirvash";
-        public const string Version = "1.2.5";
+        public const string Version = "1.2.6";
         public const string Description = "This allows you to use the video player with the menu.";
         public const string DownloadLink = "https://github.com/Nirv-git/VideoRemote/releases";
     }
@@ -48,7 +48,7 @@ namespace VideoRemote
         public static MelonPreferences_Entry<bool> sponsorSkip_intro;
         public static MelonPreferences_Entry<bool> videoHistory_En;
 
-        private static Category VideoPlayerListMain, VideoPlayerList, AdvancedOptions, videoName;
+        private static Category VideoPlayerListMain, VideoPlayerList, AdvancedOptions, videoName, videoTime;
         private static Page AdvOptionsPage, TimeStampPage, LogPage, DebugPage, SponsorSkipEvents, savedURLsPage, URLHistoryPage;
         private static SliderFloat volumeSilder;
         private static string VideoFolderString, MainPageString, SponsorSkipEventsString, AdvOptionsString, TimeStampPageString, LogPageString, DebugPageString, savedURLsPageString, URLHistoryPageString;
@@ -173,6 +173,7 @@ namespace VideoRemote
                 MainPageString = CustomPage.ElementID;
 
                 videoName = CustomPage.AddCategory("");
+                videoTime = CustomPage.AddCategory("");
                 var category = videoName;
                 var Folder = category.AddPage("Select Video Player", "VideoPlayerModLogo", "List Video Players in the World", "VideoRemoteMod");
                 VideoFolderString = Folder.ElementID;
@@ -1026,6 +1027,7 @@ namespace VideoRemote
         private static void SetCurrentVideoName()
         {
             videoName.CategoryName = (VideoPlayerSelected != null) ? Utils.VideoState(VideoPlayerSelected) + Utils.VideoNameFormat(VideoPlayerSelected) : "No video player selected";
+            videoTime.CategoryName = (VideoPlayerSelected != null) ? Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Time) + " / " + Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration()) : "";
         }
         System.Collections.IEnumerator SetCurrentVideoNameDelay()
         {//Lazy way to set the name after letting the video load

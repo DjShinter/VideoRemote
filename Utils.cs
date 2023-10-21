@@ -32,7 +32,7 @@ namespace VideoRemote
 
         public static bool IsVideoPlayerValid(ViewManagerVideoPlayer vidPlay)
         {
-            return !(vidPlay?.videoPlayer?.VideoPlayer.Equals(null) ?? true) && (vidPlay != null); 
+            return (vidPlay != null) && !(vidPlay?.videoPlayer?.VideoPlayer.Equals(null) ?? true)  ; 
         }
 
         public static string VideoState(ViewManagerVideoPlayer vidPlay)
@@ -66,6 +66,7 @@ namespace VideoRemote
             var name = vidPlay.videoName.text.Remove(0, 26);
             return (name != "eo selected") ? name : "No video playing";
         }
+
 
         public static string SkipCatSwitch(string value)
         {
