@@ -48,7 +48,7 @@ namespace VideoRemote
         public static MelonPreferences_Entry<bool> sponsorSkip_intro;
         public static MelonPreferences_Entry<bool> videoHistory_En;
 
-        private static Category VideoPlayerListMain, VideoPlayerList, AdvancedOptions, videoName, videoTime;
+        private static Category VideoPlayerListMain, VideoPlayerList, AdvancedOptions, videoName;
         private static Page AdvOptionsPage, TimeStampPage, LogPage, DebugPage, SponsorSkipEvents, savedURLsPage, URLHistoryPage;
         private static SliderFloat volumeSilder;
         private static string VideoFolderString, MainPageString, SponsorSkipEventsString, AdvOptionsString, TimeStampPageString, LogPageString, DebugPageString, savedURLsPageString, URLHistoryPageString;
@@ -92,9 +92,7 @@ namespace VideoRemote
             sponsorSkip_selfpromo = MelonPreferences.CreateEntry(catagory, nameof(sponsorSkip_selfpromo), false, "Skips Segment selfpromo");
             sponsorSkip_interaction = MelonPreferences.CreateEntry(catagory, nameof(sponsorSkip_interaction), false, "Skips Segment interaction");
             sponsorSkip_intro = MelonPreferences.CreateEntry(catagory, nameof(sponsorSkip_intro), false, "Skips Segment intro");
-            videoHistory_En = MelonPreferences.CreateEntry(catagory, nameof(videoHistory_En), true, "Record history of played URLs");
-
-            //videoHistory_En.OnValueChanged += VideoHistoryToggle;
+            videoHistory_En = MelonPreferences.CreateEntry(catagory, nameof(videoHistory_En), false, "Record history of played URLs for all Video Players. Checks every time a video is Played");
 
             if (!RegisteredMelons.Any(x => x.Info.Name.Equals("BTKUILib") && x.Info.SemanticVersion != null && x.Info.SemanticVersion.CompareTo(new SemVersion(1)) >= 0))
             {
@@ -173,7 +171,6 @@ namespace VideoRemote
                 MainPageString = CustomPage.ElementID;
 
                 videoName = CustomPage.AddCategory("");
-                videoTime = CustomPage.AddCategory("");
                 var category = videoName;
                 var Folder = category.AddPage("Select Video Player", "VideoPlayerModLogo", "List Video Players in the World", "VideoRemoteMod");
                 VideoFolderString = Folder.ElementID;
@@ -609,7 +606,7 @@ namespace VideoRemote
                 if (init) CreatePageURLsHistroyPage();
             }
             {
-                var butt = advSubPageCat_3.AddToggle("URL History", "Record URL History for Current Session", videoHistory_En.Value);
+                var butt = advSubPageCat_3.AddToggle("URL History", "Record URL History for ALL VideoPlayers in the world - Checks every time a video is Played<p>With this off history is only saved when you have a VideoPlayer selected and interact with this menu.", videoHistory_En.Value);
                 butt.OnValueUpdated += action =>
                 {
                     videoHistory_En.Value = action;
@@ -1026,8 +1023,8 @@ namespace VideoRemote
 
         private static void SetCurrentVideoName()
         {
-            videoName.CategoryName = (VideoPlayerSelected != null) ? Utils.VideoState(VideoPlayerSelected) + Utils.VideoNameFormat(VideoPlayerSelected) : "No video player selected";
-            videoTime.CategoryName = (VideoPlayerSelected != null) ? Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Time) + " / " + Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration()) : "";
+            videoName.CategoryName = (VideoPlayerSelected != null) ? Utils.VideoState(VideoPlayerSelected) + Utils.VideoNameFormat(VideoPlayerSelected) + "<p>" +
+                Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Time) + " / " + Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration()) : "No video player selected";
         }
         System.Collections.IEnumerator SetCurrentVideoNameDelay()
         {//Lazy way to set the name after letting the video load
@@ -1055,16 +1052,14 @@ namespace VideoRemote
                     {
                         if (!Utils.IsVideoPlayerValid(vp))
                             continue;
-
                         if (!String.IsNullOrWhiteSpace(vp.videoUrl.text))
                         {
                             string vidname = Utils.VideoNameFormat(vp);
                             var keyToCheck = vp.videoUrl.text;
-
                             if (!historyURLs.Reverse<(string, string, DateTime)>().Take(10).Any(tuple => tuple.Item1 == keyToCheck))
                             {
                                 historyURLs.Add((vp.videoUrl.text, vidname, DateTime.Now));
-                                SaveHistoryUrl(vidname, VideoPlayerSelected.videoUrl.text);
+                                SaveHistoryUrl(vidname, vp.videoUrl.text);
                                 MelonLogger.Msg($"Adding to history: {vidname} - {vp.videoUrl.text}");
                             }
                         }
@@ -1073,7 +1068,7 @@ namespace VideoRemote
                 var endtime = sw.ElapsedMilliseconds;
                 MelonLogger.Msg($"Time {endtime}");
             }
-            catch (Exception ex) { MelonLogger.Warning("Error in AllURLhistory \n" + ex.ToString()); }
+            catch (Exception ex) { MelonLogger.Error("Error in AllURLhistory \n" + ex.ToString()); }
         }
 
         public static void SingleURLhistory()
@@ -1160,9 +1155,10 @@ namespace VideoRemote
                         }
                     }
                 }
-                catch (Exception ex) { MelonLogger.Warning("Error getting default videoplayer \n" + ex.ToString()); }
+                catch (Exception ex) { MelonLogger.Error("Error getting default videoplayer \n" + ex.ToString()); }
                 
                 SetCurrentVideoName();
+                SingleURLhistory();
                 if (VideoPlayerSelected != null)
                 {
                     volumeSilder.SetSliderValue(VideoPlayerSelected.videoPlayer.playbackVolume);
@@ -1226,7 +1222,6 @@ namespace VideoRemote
             {
                 RefreshPage(false);
                 RefreshMainPage();
-                //RefreshPage();
             }
         }
 

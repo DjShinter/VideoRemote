@@ -64,7 +64,7 @@ namespace VideoRemote
             try
             {
                 //MelonLogger.Msg($"OnStartedPlaying");
-                VideoRemoteMod.AllURLhistory();
+                if(VideoRemoteMod.videoHistory_En.Value) VideoRemoteMod.AllURLhistory();
             }
             catch (Exception ex)
             {
