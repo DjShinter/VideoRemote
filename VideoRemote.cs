@@ -1023,8 +1023,10 @@ namespace VideoRemote
 
         private static void SetCurrentVideoName()
         {
-            videoName.CategoryName = (VideoPlayerSelected != null) ? Utils.VideoState(VideoPlayerSelected) + Utils.VideoNameFormat(VideoPlayerSelected) + "<p>" +
-                Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Time) + " / " + Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration()) : "No video player selected";
+            string time = VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.IsLivestream ? "Livestream" :
+                Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Time) + " / " + Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration());
+
+            videoName.CategoryName = (VideoPlayerSelected != null) ? Utils.VideoState(VideoPlayerSelected) + Utils.VideoNameFormat(VideoPlayerSelected) +  "<p>" + time : "No video player selected";
         }
         System.Collections.IEnumerator SetCurrentVideoNameDelay()
         {//Lazy way to set the name after letting the video load
