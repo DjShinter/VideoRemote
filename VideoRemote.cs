@@ -1043,7 +1043,7 @@ namespace VideoRemote
                 return;
             try
             {
-                var sw = Stopwatch.StartNew();
+                //var sw = Stopwatch.StartNew();
                 historyLastCheck = Time.time;
                 foreach (var CVRvp in GameObject.FindObjectsOfType<CVRVideoPlayer>())
                 {
@@ -1060,13 +1060,13 @@ namespace VideoRemote
                             {
                                 historyURLs.Add((vp.videoUrl.text, vidname, DateTime.Now));
                                 SaveHistoryUrl(vidname, vp.videoUrl.text);
-                                MelonLogger.Msg($"Adding to history: {vidname} - {vp.videoUrl.text}");
+                                //MelonLogger.Msg($"Adding to history: {vidname} - {vp.videoUrl.text}");
                             }
                         }
                     }
                 }
-                var endtime = sw.ElapsedMilliseconds;
-                MelonLogger.Msg($"Time {endtime}");
+                //var endtime = sw.ElapsedMilliseconds;
+                //MelonLogger.Msg($"Time {endtime}");
             }
             catch (Exception ex) { MelonLogger.Error("Error in AllURLhistory \n" + ex.ToString()); }
         }
@@ -1082,7 +1082,7 @@ namespace VideoRemote
             {
                 historyURLs.Add((VideoPlayerSelected.videoUrl.text, vidname, DateTime.Now));
                 SaveHistoryUrl(vidname, VideoPlayerSelected.videoUrl.text);
-                MelonLogger.Msg($"Adding {vidname} {VideoPlayerSelected.videoUrl.text}");
+                //MelonLogger.Msg($"Adding {vidname} {VideoPlayerSelected.videoUrl.text}");
             }
         }
 
