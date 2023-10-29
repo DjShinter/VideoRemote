@@ -170,7 +170,7 @@ namespace VideoRemote
                 };
                 MainPageString = CustomPage.ElementID;
 
-                videoName = CustomPage.AddCategory("");
+                videoName = CustomPage.AddCategory("No Video Player Selected");
                 var category = videoName;
                 var Folder = category.AddPage("Select Video Player", "VideoPlayerModLogo", "List Video Players in the World", "VideoRemoteMod");
                 VideoFolderString = Folder.ElementID;
@@ -1023,10 +1023,16 @@ namespace VideoRemote
 
         private static void SetCurrentVideoName()
         {
-            string time = VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.IsLivestream ? "Livestream" :
+            //"No Video Player Selected"
+            if (Utils.IsVideoPlayerValid(VideoPlayerSelected))
+            {
+                string time = VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.IsLivestream ? "Livestream" :
                 Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Time) + " / " + Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration());
 
-            videoName.CategoryName = (VideoPlayerSelected != null) ? Utils.VideoState(VideoPlayerSelected) + Utils.VideoNameFormat(VideoPlayerSelected) +  "<p>" + time : "No video player selected";
+                videoName.CategoryName = Utils.VideoState(VideoPlayerSelected) + Utils.VideoNameFormat(VideoPlayerSelected) + "<p>" + time;
+            }
+            else
+                videoName.CategoryName = "No video player selected";
         }
         System.Collections.IEnumerator SetCurrentVideoNameDelay()
         {//Lazy way to set the name after letting the video load
@@ -1158,11 +1164,11 @@ namespace VideoRemote
                     }
                 }
                 catch (Exception ex) { MelonLogger.Error("Error getting default videoplayer \n" + ex.ToString()); }
-                
                 SetCurrentVideoName();
                 SingleURLhistory();
                 if (VideoPlayerSelected != null)
                 {
+
                     volumeSilder.SetSliderValue(VideoPlayerSelected.videoPlayer.playbackVolume);
                 }
             }
