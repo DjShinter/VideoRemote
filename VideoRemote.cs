@@ -647,7 +647,7 @@ namespace VideoRemote
                     currentString += "Playing: " + Utils.VideoNameFormat(VideoPlayerSelected) + "<p>";
                     currentString += "Currently at: " + Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Time) + "<p>";
                     currentString += "End time: " + Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration()) + "<p>";
-                    var textCat = TimeStampPage.AddCategory("temp");
+                    var textCat = TimeStampPage.AddCategory("temp", true, false);
                     textCat.CategoryName = currentString;
 
                     var timeHeader = TimeStampPage.AddCategory($"Timestamp: {Utils.FormatTime(timestampSum)}", true, false);
