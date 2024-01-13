@@ -17,7 +17,6 @@ using ABI.CCK.Components;
 using ABI_RC.Core.InteractionSystem;
 using HarmonyLib;
 using System.Net;
-using System.Web;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using ABI_RC.Core.UI;
@@ -33,7 +32,7 @@ namespace VideoRemote
     {
         public const string Name = "Video Remote";
         public const string Author = "Shin, Nirvash";
-        public const string Version = "1.7.1";
+        public const string Version = "1.7.2";
         public const string Description = "This allows you to use the video player with the menu.";
         public const string DownloadLink = "https://github.com/Nirv-git/VideoRemote/releases";
     }
@@ -1395,11 +1394,11 @@ namespace VideoRemote
                 return;
             //https://stackoverflow.com/a/39777772
             var uri = new Uri(url);
-            var query = HttpUtility.ParseQueryString(uri.Query);
-            var videoId = string.Empty;
-            if (query.AllKeys.Contains("v"))
+            var query = Utils.ExtractVideoIdFromUri(uri);
+            var videoId = "";
+            if (query != "")
             {
-                videoId = query["v"];
+                videoId = query;
             }
             else
             {
