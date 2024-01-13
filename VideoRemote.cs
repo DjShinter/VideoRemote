@@ -1375,6 +1375,7 @@ namespace VideoRemote
 
                         PrepSkipList();
                         startedSkips = true;
+                        lastskip = new float[2];
                         if (sponsorSkipLiveCoroutine != null) MelonCoroutines.Stop(sponsorSkipLiveCoroutine);
                         sponsorSkipLiveCoroutine = MelonCoroutines.Start(SponsorSkipping());
 
@@ -1450,12 +1451,19 @@ namespace VideoRemote
 
         public static System.Collections.IEnumerator SponsorSkipping()
         {
-            var vidDur = VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration();
             while (sponsorSkip && VideoPlayerSelected?.videoPlayer?.VideoPlayer != null && VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl == sponsorskipVideo)
             {
+                //MelonLogger.Msg($"--SponsorSkipping Loop--");
                 yield return new WaitForSeconds(.25f);
+                var vidDur = VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration();
                 foreach (var x in sponsorskips)
                 { //Check every x seconds if within a skip, if so, jump to end of skip
+                    //MelonLogger.Msg($"VideoPlayer.Time: {VideoPlayerSelected.videoPlayer.VideoPlayer.Time}");
+                    //MelonLogger.Msg($"vidDur: {vidDur}");
+                    //MelonLogger.Msg($"{VideoPlayerSelected.videoPlayer.VideoPlayer.Time > x.Item2[0]} | {VideoPlayerSelected.videoPlayer.VideoPlayer.Time < x.Item2[1] - 5f}");
+                    //MelonLogger.Msg($"{x.Item2[0] != lastskip[0]} | {x.Item2[1] != lastskip[1]}");
+                    //MelonLogger.Msg($"{x.Item2[0] < vidDur - 5} | {x.Item2[1] < vidDur - 5}");
+
                     if (VideoPlayerSelected.videoPlayer.VideoPlayer.Time > x.Item2[0] && VideoPlayerSelected.videoPlayer.VideoPlayer.Time < x.Item2[1] - 5f  //Don't skip if close to end
                         && x.Item2[0] != lastskip[0] && x.Item2[1] != lastskip[1]//Don't repeat skips
                         && x.Item2[0] < vidDur - 5 && x.Item2[1] < vidDur - 5)//Do not skip to very end
