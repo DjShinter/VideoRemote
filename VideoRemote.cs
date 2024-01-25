@@ -7,6 +7,7 @@ using System.Reflection;
 using BTKUILib.UIObjects;
 using BTKUILib.UIObjects.Components;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
 using System;
 using System.Linq;
@@ -32,7 +33,7 @@ namespace VideoRemote
     {
         public const string Name = "Video Remote";
         public const string Author = "Shin, Nirvash";
-        public const string Version = "1.7.2";
+        public const string Version = "1.7.3";
         public const string Description = "This allows you to use the video player with the menu.";
         public const string DownloadLink = "https://github.com/Nirv-git/VideoRemote/releases";
     }
@@ -83,6 +84,12 @@ namespace VideoRemote
 
         private static float historyLastCheck = 0;
 
+        public static float worldLastJoin = 0;
+        public static bool vidPlayerJoinCoroutine_Run;
+        public static List<string> vidJoinBuffer_toRemove = new List<string>();
+        public static ConcurrentDictionary<string, (string, bool, string, string, float)> vidPlayerJoinBuffer = new ConcurrentDictionary<string, (string, bool, string, string, float)>(); //ID,(1-URL,2-Paused,3-PlayerName,4-ObjPath,8-Date)
+
+
         public override void OnInitializeMelon()
         {
             Instance = this;
@@ -122,6 +129,9 @@ namespace VideoRemote
                 }
             }
             VideoPlayerSelected = null;
+            vidPlayerJoinBuffer.Clear();
+            worldLastJoin = Time.time;
+            //MelonLogger.Msg("OnSceneWasInitialized");
         }
 
         private void SetupIcons()
@@ -1178,6 +1188,72 @@ namespace VideoRemote
                     }
                 }
             }
+        }
+
+        public System.Collections.IEnumerator ProccessJoinBufferInit()
+        {
+            yield return new WaitForSecondsRealtime(.25f);
+            if (!vidPlayerJoinCoroutine_Run)
+            {
+                MelonLogger.Msg($"Starting ProccessJoinBuffer");
+                MelonCoroutines.Start(ProccessJoinBuffer());
+            }
+        }
+
+        public System.Collections.IEnumerator ProccessJoinBuffer()
+        {
+            vidPlayerJoinCoroutine_Run = true;
+            while (vidPlayerJoinBuffer.Count >= 0)
+            {
+                try
+                {
+                    //MelonLogger.Msg($"-------------------------------------------------------------------");
+                    //MelonLogger.Msg($"Loop - {Time.time} - {vidPlayerJoinBuffer.Count}");
+                    //foreach (var item in vidPlayerJoinBuffer)
+                    //    MelonLogger.Msg($"{item.Key} -- {item.Value}");
+                    //foreach (var vidPlayer in GameObject.FindObjectsOfType<CVRVideoPlayer>(false))
+                    //    MelonLogger.Msg($"Player P: {vidPlayer.playerId}");
+                    //MelonLogger.Msg($"-------------------------------------------------------------------");
+
+                    foreach (var buffer in vidPlayerJoinBuffer)
+                    {// (url, isPaused, playerName, objPath, Time.time);
+                        //MelonLogger.Msg($"Loop VidBuffer - {Time.time} - {buffer.Key}");
+                        if (buffer.Value.Item5 + 60f < Time.time  || buffer.Value.Item1 == null)
+                        {
+                            //MelonLogger.Msg($"Removing - {buffer.Key}");
+                            vidJoinBuffer_toRemove.Add(buffer.Key);
+                            continue;
+                        }
+
+                        var foundPlayer = CVRWorld.Instance.VideoPlayers.Find((Predicate<CVRVideoPlayer>)(match => match.playerId == buffer.Key));
+                        if (foundPlayer != null)
+                        {
+                            //MelonLogger.Msg($"Match Found");
+                            //vidPlayer.SetControlPermission(buffer.Value.Item5, false, buffer.Value.Item6);
+                            foundPlayer.lastNetworkVideoUrl = buffer.Value.Item1;
+                            foundPlayer.lastNetworkVideoPath = buffer.Value.Item1;
+                            if (foundPlayer.syncEnabled)
+                            {
+                                foundPlayer.SetVideoUrl(buffer.Value.Item1, false, buffer.Value.Item4, buffer.Value.Item3, buffer.Value.Item2);
+                                //MelonLogger.Msg($"Match Set {buffer.Value}");
+                            }
+                            vidJoinBuffer_toRemove.Add(buffer.Key);
+                        } 
+                    }
+                }
+                catch (Exception ex) { MelonLogger.Error("Error in Buffer Loop \n" + ex.ToString()); vidPlayerJoinBuffer.Clear(); }
+
+                yield return new WaitForSecondsRealtime(2.5f);
+
+                try
+                {
+                    foreach (string key in vidJoinBuffer_toRemove)
+                        vidPlayerJoinBuffer.TryRemove(key, out _);
+                    vidJoinBuffer_toRemove.Clear();
+                }
+                catch (Exception ex) { MelonLogger.Error("Error vidJoinBuffer_toRemove \n" + ex.ToString()); vidPlayerJoinBuffer.Clear(); }
+            }
+            vidPlayerJoinCoroutine_Run = false;
         }
 
         System.Collections.IEnumerator ReloadVideo()
