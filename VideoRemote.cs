@@ -33,7 +33,7 @@ namespace VideoRemote
     {
         public const string Name = "Video Remote";
         public const string Author = "Shin, Nirvash";
-        public const string Version = "1.7.3";
+        public const string Version = "1.7.5";
         public const string Description = "This allows you to use the video player with the menu.";
         public const string DownloadLink = "https://github.com/Nirv-git/VideoRemote/releases";
     }
@@ -805,7 +805,7 @@ namespace VideoRemote
                 {
                     foreach (var entry in VideoPlayerSelected.logEntries)
                     {
-                        var entryText = entry.Replace($"Unknown ({MetaPort.Instance.ownerId})", AuthManager.username);
+                        var entryText = entry.Replace($"Unknown ({MetaPort.Instance.ownerId})", AuthManager.Username);
 
                         Regex regex = new Regex(@"(\d+\.\d+)");
                         Match match = regex.Match(entryText);
