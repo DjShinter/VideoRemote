@@ -39,8 +39,6 @@ You can join **STARCVR** discord: https://discord.gg/sHN9x2n2j8
 
 ChilloutVR Modding Group: https://discord.gg/dndGPM3bxu
 
-CVR Modding Corner: https://discord.gg/ECaZkYzkFH
-
 # Mod Information
 
 This mod allows you to have Video Remote Controls in the Quick Menu.
