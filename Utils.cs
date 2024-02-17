@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using ABI_RC.VideoPlayer.Scripts;
 using MelonLoader;
 using UnityEngine;
@@ -25,21 +26,48 @@ namespace VideoRemote
                 return "World";
             if (current.name.Contains("CVRSpawnable_"))
                 return "Prop";
+            if (current.name.Contains("_CVRSpawnable"))
+                return "Prop";
             return current.parent.GetPlayerType();
         }
 
         public static bool IsVideoPlayerValid(ViewManagerVideoPlayer vidPlay)
         {
-            return !(vidPlay?.videoPlayer?.VideoPlayer.Equals(null) ?? true) && (vidPlay != null); 
+            return (vidPlay != null) && !(vidPlay?.videoPlayer?.VideoPlayer.Equals(null) ?? true)  ; 
+        }
+
+        public static string VideoState(ViewManagerVideoPlayer vidPlay)
+        {
+            if (vidPlay?.videoName?.text.Equals(null) ?? true)
+                return "";
+
+            if (vidPlay.videoName.text.Contains("Currently Playing:"))
+                return "Playing: ";
+            if (vidPlay.videoName.text.Contains("Currently Paused:"))
+                return "Paused: ";
+
+            return "";
         }
 
         public static string VideoNameFormat(ViewManagerVideoPlayer vidPlay)
         {
-            if (vidPlay?.videoName?.text?.Length < 26)
+            //"Currently Paused:"
+            //"Currently Playing:"
+            if (vidPlay?.videoName?.text.Equals(null) ?? true)
+                return "No video player";
+
+            if (vidPlay.videoName.text.Length < 25)
                 return "No video playing";
+
+            if (vidPlay.videoName.text.Contains("Currently Playing:"))
+                return vidPlay.videoName.text.Remove(0, 26);
+            if (vidPlay.videoName.text.Contains("Currently Paused:"))
+                return vidPlay.videoName.text.Remove(0, 25);
+
             var name = vidPlay.videoName.text.Remove(0, 26);
             return (name != "eo selected") ? name : "No video playing";
         }
+
 
         public static string SkipCatSwitch(string value)
         {
@@ -84,6 +112,31 @@ namespace VideoRemote
             }
             MelonLogger.Msg(ConsoleColor.Red, $"Date Error: {value}");
             return DateTime.MinValue;
+        }
+
+        //https://stackoverflow.com/a/39784693
+        private const string YoutubeLinkRegex = "(?:.+?)?(?:\\/v\\/|watch\\/|\\?v=|\\&v=|youtu\\.be\\/|\\/v=|^youtu\\.be\\/)([a-zA-Z0-9_-]{11})+";
+        private static Regex regexExtractId = new Regex(YoutubeLinkRegex, RegexOptions.Compiled);
+        private static string[] validAuthorities = { "youtube.com", "www.youtube.com", "youtu.be", "www.youtu.be" };
+        public static string ExtractVideoIdFromUri(Uri uri)
+        {
+            try
+            {
+                string authority = new UriBuilder(uri).Uri.Authority.ToLower();
+
+                //check if the url is a youtube url
+                if (validAuthorities.Contains(authority))
+                {
+                    //and extract the id
+                    var regRes = regexExtractId.Match(uri.ToString());
+                    if (regRes.Success)
+                    {
+                        return regRes.Groups[1].Value;
+                    }
+                }
+            }
+            catch { }
+            return null;
         }
     }
 }

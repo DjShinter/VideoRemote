@@ -7,23 +7,24 @@ using System.Reflection;
 using BTKUILib.UIObjects;
 using BTKUILib.UIObjects.Components;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
 using System;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Semver;
 using ABI.CCK.Components;
 using ABI_RC.Core.InteractionSystem;
 using HarmonyLib;
 using System.Net;
-using System.Web;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using ABI_RC.Core.UI;
 using ABI_RC.VideoPlayer;
 using ABI_RC.Core.Networking;
 using ABI_RC.Core.Savior;
-
+using System.Diagnostics;
 
 
 namespace VideoRemote
@@ -32,11 +33,11 @@ namespace VideoRemote
     {
         public const string Name = "Video Remote";
         public const string Author = "Shin, Nirvash";
-        public const string Version = "1.2.4";
+        public const string Version = "1.7.5";
         public const string Description = "This allows you to use the video player with the menu.";
         public const string DownloadLink = "https://github.com/Nirv-git/VideoRemote/releases";
     }
-    public sealed class VideoRemoteMod : MelonMod
+    public class VideoRemoteMod : MelonMod
     {
         public static VideoRemoteMod Instance;
 
@@ -46,18 +47,22 @@ namespace VideoRemote
         public static MelonPreferences_Entry<bool> sponsorSkip_selfpromo;
         public static MelonPreferences_Entry<bool> sponsorSkip_interaction;
         public static MelonPreferences_Entry<bool> sponsorSkip_intro;
+        public static MelonPreferences_Entry<bool> videoHistory_En;
 
         private static Category VideoPlayerListMain, VideoPlayerList, AdvancedOptions, videoName;
-        private static Page AdvOptionsPage, TimeStampPage, LogPage, DebugPage, SponsorSkipEvents, savedURLsPage;
+        private static Page AdvOptionsPage, TimeStampPage, LogPage, DebugPage, SponsorSkipEvents, savedURLsPage, URLHistoryPage;
         private static SliderFloat volumeSilder;
-        private static string VideoFolderString, MainPageString, SponsorSkipEventsString, AdvOptionsString, TimeStampPageString, LogPageString, DebugPageString, savedURLsPageString;
+        private static string VideoFolderString, MainPageString, SponsorSkipEventsString, AdvOptionsString, TimeStampPageString, LogPageString, DebugPageString, savedURLsPageString, URLHistoryPageString;
         private static string lastQMPage = "";
 
         public static bool _initalized = new();
         private static ViewManagerVideoPlayer VideoPlayerSelected = new();
         private const string FolderRoot = "UserData/VideoRemote/";
-        private const string FolderConfig = "savedURLsList.txt";
+        private const string savedURLsFileName = "savedURLsList.txt";
+        private const string histroyURLFileName = "historyURLsList.txt";
         public static Dictionary<string, (string, DateTime)> savedURLs = new Dictionary<string, (string, DateTime)>(); //URL,(Name,Date)
+        public static List<(string, string, DateTime)> historyURLs = new List<(string, string, DateTime)>(); //URL,(Name,Date)
+
 
         private static GameObject localScreen;
         private static bool pickupable = false;
@@ -77,6 +82,14 @@ namespace VideoRemote
         private static int timeStampMin = 0;
         private static int timeStampSec = 0;
 
+        private static float historyLastCheck = 0;
+
+        public static float worldLastJoin = 0;
+        public static bool vidPlayerJoinCoroutine_Run;
+        public static List<string> vidJoinBuffer_toRemove = new List<string>();
+        public static ConcurrentDictionary<string, (string, bool, string, string, float)> vidPlayerJoinBuffer = new ConcurrentDictionary<string, (string, bool, string, string, float)>(); //ID,(1-URL,2-Paused,3-PlayerName,4-ObjPath,8-Date)
+
+
         public override void OnInitializeMelon()
         {
             Instance = this;
@@ -86,6 +99,7 @@ namespace VideoRemote
             sponsorSkip_selfpromo = MelonPreferences.CreateEntry(catagory, nameof(sponsorSkip_selfpromo), false, "Skips Segment selfpromo");
             sponsorSkip_interaction = MelonPreferences.CreateEntry(catagory, nameof(sponsorSkip_interaction), false, "Skips Segment interaction");
             sponsorSkip_intro = MelonPreferences.CreateEntry(catagory, nameof(sponsorSkip_intro), false, "Skips Segment intro");
+            videoHistory_En = MelonPreferences.CreateEntry(catagory, nameof(videoHistory_En), false, "Record history of played URLs for all Video Players. Checks every time a video is Played");
 
             if (!RegisteredMelons.Any(x => x.Info.Name.Equals("BTKUILib") && x.Info.SemanticVersion != null && x.Info.SemanticVersion.CompareTo(new SemVersion(1)) >= 0))
             {
@@ -111,10 +125,13 @@ namespace VideoRemote
                 {
                     _initalized = true;
                     SetupIcons();
-                    HarmonyInstance.Patch(typeof(CVR_MenuManager).GetMethod(nameof(CVR_MenuManager.ToggleQuickMenu)), null, new HarmonyMethod(typeof(VideoRemoteMod).GetMethod(nameof(QMtoggle), BindingFlags.NonPublic | BindingFlags.Static)));
+                    //HarmonyInstance.Patch(typeof(CVR_MenuManager).GetMethod(nameof(CVR_MenuManager.ToggleQuickMenu)), null, new HarmonyMethod(typeof(VideoRemoteMod).GetMethod(nameof(QMtoggle), BindingFlags.NonPublic | BindingFlags.Static)));
                 }
             }
             VideoPlayerSelected = null;
+            vidPlayerJoinBuffer.Clear();
+            worldLastJoin = Time.time;
+            //MelonLogger.Msg("OnSceneWasInitialized");
         }
 
         private void SetupIcons()
@@ -147,6 +164,11 @@ namespace VideoRemote
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModRes", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Res.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModEventLog", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.EventLog.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModRemoveLink", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.RemoveLink.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModURLHistory", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.URLHistory.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerMod-jog-5", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Minus5.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerMod-jog-1", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Minus1.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerMod-jog1", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Plus1.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerMod-jog5", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Plus5.png"));
 
             SetupUI();
             QuickMenuAPI.OnOpenedPage += OnPageOpen;
@@ -162,13 +184,13 @@ namespace VideoRemote
                 };
                 MainPageString = CustomPage.ElementID;
 
-                videoName = CustomPage.AddCategory("");
+                videoName = CustomPage.AddCategory("No Video Player Selected", true, false);
                 var category = videoName;
                 var Folder = category.AddPage("Select Video Player", "VideoPlayerModLogo", "List Video Players in the World", "VideoRemoteMod");
                 VideoFolderString = Folder.ElementID;
-                VideoPlayerListMain = Folder.AddCategory("");
-                VideoPlayerList = Folder.AddCategory("Video Players In World");
-                
+                VideoPlayerListMain = Folder.AddCategory("", false, false);
+                VideoPlayerList = Folder.AddCategory("Video Players In World", true, false);
+
                 var button = category.AddButton("Play Video", "VideoPlayerModPlay2", "Play the Video");
                 button.OnPress += () =>
                 {
@@ -176,6 +198,7 @@ namespace VideoRemote
                     if (VideoPlayerSelected != null)
                     {
                         VideoPlayerSelected.Play();
+                        MelonCoroutines.Start(Instance.SetCurrentVideoNameDelay());
                     }
                     else
                     {
@@ -190,6 +213,7 @@ namespace VideoRemote
                     if (VideoPlayerSelected != null)
                     {
                         VideoPlayerSelected.Pause();
+                        MelonCoroutines.Start(Instance.SetCurrentVideoNameDelay());
                     }
                     else
                     {
@@ -226,10 +250,10 @@ namespace VideoRemote
                     }
                 };
 
-                AdvancedOptions = CustomPage.AddCategory("");
+                AdvancedOptions = CustomPage.AddCategory("", false, false);
                 PopulateAdvancedButtons(true);
 
-                var catLocalVid = CustomPage.AddCategory("Local Video Player Screen");
+                var catLocalVid = CustomPage.AddCategory("Local Video Player Screen", true, false);
                 var buttSpawnScreen = catLocalVid.AddButton("Spawn/Toggle Local Screen", "VideoPlayerModNewScreen", "Creates a local copy of the video player screen in front of you.<p>You must select a video player first.").OnPress += () =>
                 {
                     if (VideoPlayerSelected != null || (!localScreen?.Equals(null) ?? false))
@@ -267,20 +291,25 @@ namespace VideoRemote
             if (!String.IsNullOrWhiteSpace(vp.videoUrl.text))
             {
                 string vidname = Utils.VideoNameFormat(vp);
-                if (!File.Exists(FolderRoot + FolderConfig))
+                if (!File.Exists(FolderRoot + savedURLsFileName))
                 {
-                    using StreamWriter sw = File.CreateText(FolderRoot + FolderConfig);
+                    using StreamWriter sw = File.CreateText(FolderRoot + savedURLsFileName);
                     sw.WriteLine(DateTime.Now.ToString(dateFormatOut) + " ␟ " + vidname + " ␟ " + vp.videoUrl.text);
                 }
                 else
                 {
-                    if (File.Exists(FolderRoot + FolderConfig))
+                    if (File.Exists(FolderRoot + savedURLsFileName))
                     {
-                        using StreamWriter sw = File.AppendText(FolderRoot + FolderConfig);
+                        using StreamWriter sw = File.AppendText(FolderRoot + savedURLsFileName);
                         sw.WriteLine(DateTime.Now.ToString(dateFormatOut) + " ␟ " + vidname + " ␟ " + vp.videoUrl.text);
                     }
                 }
                 if(!savedURLs.ContainsKey(vp.videoUrl.text)) savedURLs.Add(vp.videoUrl.text, (vidname, DateTime.Now));
+                else
+                {
+                    savedURLs.Remove(vp.videoUrl.text);
+                    savedURLs.Add(vp.videoUrl.text, (vidname, DateTime.Now));
+                }
             }
             else
             {
@@ -296,7 +325,7 @@ namespace VideoRemote
                 savedURLs.Remove(videoUrl);
                 try
                 {
-                     File.WriteAllLines(FolderRoot + FolderConfig, savedURLs.Select(p => string.Format("{0} ␟ {1} ␟ {2}", p.Value.Item2.ToString(dateFormatOut), p.Value.Item1, p.Key)), Encoding.UTF8);
+                     File.WriteAllLines(FolderRoot + savedURLsFileName, savedURLs.Select(p => string.Format("{0} ␟ {1} ␟ {2}", p.Value.Item2.ToString(dateFormatOut), p.Value.Item1, p.Key)), Encoding.UTF8);
                 }
                 catch (Exception ex) { MelonLogger.Error("Error writing video list after removing URL\n" + ex.ToString()); }
             }
@@ -305,11 +334,11 @@ namespace VideoRemote
         public static void LoadURLs()
         {
             var dateFormatIn = "yyyy-MM-dd";
-            if (File.Exists(FolderRoot + FolderConfig))
+            if (File.Exists(FolderRoot + savedURLsFileName))
             {
                 try
                 {
-                    savedURLs = new Dictionary<string, (string, DateTime)>(File.ReadAllLines(FolderRoot + FolderConfig).Select(s => s.Split(new char[] { '␟' }, StringSplitOptions.RemoveEmptyEntries))
+                    savedURLs = new Dictionary<string, (string, DateTime)>(File.ReadAllLines(FolderRoot + savedURLsFileName).Select(s => s.Split(new char[] { '␟' }, StringSplitOptions.RemoveEmptyEntries))
                       .Where(x => x.Length == 3).ToLookup(p => p[2].Trim(), p => (p[1].Trim(), Utils.ParseDate(p[0].Trim(), dateFormatIn)))
                       .ToDictionary(p => p.Key, p => p.First()));
                 }
@@ -372,8 +401,8 @@ namespace VideoRemote
                 if (Utils.IsVideoPlayerValid(VideoPlayerSelected))
                 {
                     SaveUrl(VideoPlayerSelected);
-                    QuickMenuAPI.ShowAlertToast($"Saved URL! Located in ChilloutVR/{FolderRoot}{FolderConfig}", 3);
-                    MelonLogger.Msg($"Saved URL! Located in ChilloutVR/{FolderRoot}{FolderConfig}");
+                    QuickMenuAPI.ShowAlertToast($"Saved URL! Located in ChilloutVR/{FolderRoot}{savedURLsFileName}", 3);
+                    MelonLogger.Msg($"Saved URL! Located in ChilloutVR/{FolderRoot}{savedURLsFileName}");
                 }
                 else
                 {
@@ -395,7 +424,7 @@ namespace VideoRemote
 
             if (AdvOptionsPage != null && AdvOptionsPage.IsGenerated) AdvOptionsPage.ClearChildren();
 
-            var advSubPageCat = AdvOptionsPage.AddCategory("");
+            var advSubPageCat = AdvOptionsPage.AddCategory("", false, false);
             {
                 var current = Utils.IsVideoPlayerValid(VideoPlayerSelected) ? VideoPlayerSelected.videoPlayer.ControlPermission.ToString() : "None Selected";
                 var butt = advSubPageCat.AddButton($"Permission: {current}", "VideoPlayerModKeys", $"Toggles the video player permission between<p>Everyone and InstanceModerators");
@@ -549,7 +578,7 @@ namespace VideoRemote
                 if (init) CreatePageTimeStampPage();
             }
             //
-            var advSubPageCat_2 = AdvOptionsPage.AddCategory("");
+            var advSubPageCat_2 = AdvOptionsPage.AddCategory("", false, false);
             //    
             {
                 LogPage = advSubPageCat_2.AddPage("Event Logs", "VideoPlayerModEventLog", "Video Player Event Logs", "VideoRemoteMod");
@@ -583,6 +612,20 @@ namespace VideoRemote
                 };
             }
             //
+            var advSubPageCat_3 = AdvOptionsPage.AddCategory("", false, false);
+            //    
+            {
+                URLHistoryPage = advSubPageCat_3.AddPage("URL History Page", "VideoPlayerModURLHistory", "Videos played on VideoPlayers since game start", "VideoRemoteMod");
+                URLHistoryPageString = URLHistoryPage.ElementID;
+                if (init) CreatePageURLsHistroyPage();
+            }
+            {
+                var butt = advSubPageCat_3.AddToggle("URL History", "Record URL History for ALL VideoPlayers in the world - Checks every time a video is Played<p>With this off history is only saved when you have a VideoPlayer selected and interact with this menu.", videoHistory_En.Value);
+                butt.OnValueUpdated += action =>
+                {
+                    videoHistory_En.Value = action;
+                };
+            }
         }
 
         public static void CreatePageTimeStampPage()
@@ -594,25 +637,29 @@ namespace VideoRemote
             var timestampSum = timeStampHour * 60 * 60 + timeStampMin * 60 + timeStampSec;
             if (!Utils.IsVideoPlayerValid(VideoPlayerSelected))
             {
-                TimeStampPage.AddCategory($"No Player Selected");
+                TimeStampPage.AddCategory($"No Player Selected", true, false);
             }
             else
             {
                 if (VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.IsLivestream)
                 {
-                    TimeStampPage.AddCategory($"Video is a livestream: No time controls allowed");
+                    TimeStampPage.AddCategory($"Video is a livestream: No time controls allowed", true, false);
                 }
                 else if (!(VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration() > 0))
                 {
-                    TimeStampPage.AddCategory($"No video playing");
+                    TimeStampPage.AddCategory($"No video playing", true, false);
                 }
                 else
                 {
-                    TimeStampPage.AddCategory("Playing: " + Utils.VideoNameFormat(VideoPlayerSelected));
-                    TimeStampPage.AddCategory("Currently at: " + Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Time));
-                    TimeStampPage.AddCategory("End time: " + Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration()));
+                    var currentString = "";
 
-                    var timeHeader = TimeStampPage.AddCategory($"Timestamp: {Utils.FormatTime(timestampSum)}");
+                    currentString += "Playing: " + Utils.VideoNameFormat(VideoPlayerSelected) + "<p>";
+                    currentString += "Currently at: " + Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Time) + "<p>";
+                    currentString += "End time: " + Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration()) + "<p>";
+                    var textCat = TimeStampPage.AddCategory("temp", true, false);
+                    textCat.CategoryName = currentString;
+
+                    var timeHeader = TimeStampPage.AddCategory($"Timestamp: {Utils.FormatTime(timestampSum)}", true, false);
                     timeHeader.AddButton($"Set to timestamp", "VideoPlayerModTimestamp", $"Set video to {Utils.FormatTime(timestampSum)}").OnPress += () =>
                     {
                         if (VideoPlayerSelected?.videoPlayer?.VideoPlayer != null && timestampSum < VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration() - 5)
@@ -653,7 +700,39 @@ namespace VideoRemote
                         });
                     };
 
-                    var timeSegHeader = TimeStampPage.AddCategory($"Generated Timestamps");
+                    var jogHeader = TimeStampPage.AddCategory($"Jog Controllers", true, false);
+                    {
+                        var jogList = new Dictionary<string, int> {
+                            {"VideoPlayerMod-jog-5", -5 },
+                            {"VideoPlayerMod-jog-1", -1 },
+                            {"VideoPlayerMod-jog1", 1 },
+                            {"VideoPlayerMod-jog5", 5 }
+                        };
+
+                        foreach (var jog in jogList)
+                        {
+                            float seconds = 60f * jog.Value;
+                            jogHeader.AddButton($"{jog.Value} Min", jog.Key, $"Set video {jog.Value} minute(s)").OnPress += () =>
+                            {
+                                var timestampTo = (float)VideoPlayerSelected.videoPlayer.VideoPlayer.Time + seconds;
+                                if (VideoPlayerSelected?.videoPlayer?.VideoPlayer != null && timestampTo < VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration() - 5 &&
+                                timestampTo > 0f)
+                                {//Confirm this video is still on
+                                    MelonLogger.Msg($"Jogged timestamp to: {Utils.FormatTime(timestampTo)}, Was at: {Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Time)}");
+                                    QuickMenuAPI.ShowAlertToast($"Jogged timestamp to: {Utils.FormatTime(timestampTo)}", 2);
+                                    VideoPlayerSelected.videoPlayer.SetVideoTimestamp(timestampTo);
+                                    CreatePageTimeStampPage();
+                                }
+                                else
+                                {
+                                    QuickMenuAPI.ShowAlertToast("Video Player does not exist or timestamp beyond length of video", 3);
+                                    MelonLogger.Msg("Video Player does not exist or timestamp beyond length of video");
+                                }
+                            };
+                        }
+                    }
+
+                    var timeSegHeader = TimeStampPage.AddCategory($"Generated Timestamps", true, false);
                     if (VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration() > 0)
                     {
                         var timeInterval = (float)VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration() / 10;
@@ -661,7 +740,10 @@ namespace VideoRemote
                         {
                             var timeSeg = timeInterval * i;
                             var timeSeg2 = timeInterval * (i + 1);
-                            var timeSegLoop = TimeStampPage.AddCategory($"{Utils.FormatTime(timeSeg)}__________________{Utils.FormatTime(timeSeg2)} ");
+                            var timeStampText = $"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {Utils.FormatTime(timeSeg)} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" +
+                                $" {Utils.FormatTime(timeSeg2)} ";
+                            var timeSegLoop = TimeStampPage.AddCategory("temp", true, false); //__________________
+                            timeSegLoop.CategoryName = timeStampText;
 
                             for (int x = 0; x < 2; x++)
                             {
@@ -707,24 +789,36 @@ namespace VideoRemote
 
             if (!Utils.IsVideoPlayerValid(VideoPlayerSelected))
             {
-                LogPage.AddCategory($"No Player Selected");
+                LogPage.AddCategory($"No Player Selected", true, false);
             }
             else
             {
-                var cat = LogPage.AddCategory($"");
+                var cat = LogPage.AddCategory($"", false, false);
                 cat.AddButton($"Refresh", "VideoPlayerModReset", $"Refresh page").OnPress += () =>
                 {
                     CreatePageLogPage();
                 };
-                LogPage.AddCategory($"Video player log entries:");
+                LogPage.AddCategory($"Video player log entries:", true, false);
                 if (VideoPlayerSelected.logEntries.Count == 0)
-                    LogPage.AddCategory("None");
+                    LogPage.AddCategory("None", true, false);
                 else
                 {
                     foreach (var entry in VideoPlayerSelected.logEntries)
                     {
+                        var entryText = entry.Replace($"Unknown ({MetaPort.Instance.ownerId})", AuthManager.Username);
 
-                        LogPage.AddCategory(entry.Replace($"Unknown ({MetaPort.Instance.ownerId})", AuthManager.username));
+                        Regex regex = new Regex(@"(\d+\.\d+)");
+                        Match match = regex.Match(entryText);
+                        if (match.Success)
+                        {
+                            string floatString = match.Groups[1].Value;
+                            if (float.TryParse(floatString, out float floatValue))
+                            {
+                                entryText = entryText.Replace(floatString +" seconds", $"{floatString} seconds ({Utils.FormatTime(floatValue)})");
+                            }
+                        }
+
+                        LogPage.AddCategory(entryText, true, false);
                     }
                 }
             }
@@ -738,11 +832,11 @@ namespace VideoRemote
 
             if (!Utils.IsVideoPlayerValid(VideoPlayerSelected))
             {
-                DebugPage.AddCategory($"No Player Selected");
+                DebugPage.AddCategory($"No Player Selected", true, false);
             }
             else
             {
-                var cat = DebugPage.AddCategory($"Debug Info:");
+                var cat = DebugPage.AddCategory($"Debug Info:", true, false);
                 cat.AddButton($"Refresh", "VideoPlayerModReset", $"Refresh page").OnPress += () =>
                 {
                     CreatePageDebug();
@@ -755,18 +849,23 @@ namespace VideoRemote
                     str2 = VideoPlayerSelected.videoPlayer.currentlySelectedPlaylist.playlistTitle;
                 var videoPlayer = VideoPlayerSelected.videoPlayer.VideoPlayer;
 
-                DebugPage.AddCategory($"Video title: {str1.Truncate(25)}");
-                DebugPage.AddCategory($"Playlist title: {str2.Truncate(25)}");
-                DebugPage.AddCategory($"URL: {videoPlayer.Info.VideoMetaData.GetUrl()}");
-                DebugPage.AddCategory($"Video FPS: {videoPlayer.Info.VideoMetaData.GetVideoFps()} Player FPS: {videoPlayer.Info.GetPlayerFps()}");
-                DebugPage.AddCategory($"Connection: {(videoPlayer.Info.IsConnectionLost() ? "Lost" : "Connected")}");
-                DebugPage.AddCategory($"Video Player Time: {videoPlayer.Info.Time}");
-                DebugPage.AddCategory($"Audio Player Time: {videoPlayer.Info.AudioTime}");
-                DebugPage.AddCategory($"Video Texture Res: {videoPlayer.Info.VideoMetaData.GetVideoWidth()} x {videoPlayer.Info.VideoMetaData.GetVideoHeight()}");
-                DebugPage.AddCategory($"Render Texture Res: {VideoPlayerSelected.videoPlayer.ProjectionTexture.width} x {VideoPlayerSelected.videoPlayer.ProjectionTexture.height}");
-                DebugPage.AddCategory($"Video Codec: {GetVideoCodec()}");
-                DebugPage.AddCategory($"Audio Mode: {VideoPlayerSelected.videoPlayer.audioPlaybackMode}");
-                DebugPage.AddCategory($"Audio Channels: {videoPlayer.Info.VideoMetaData.GetAudioChannels()}");
+                var debugString = "";
+
+                debugString += $"Video title: {str1.Truncate(25)}<p>";
+                debugString += $"Playlist title: {str2.Truncate(25)}<p>";
+                debugString += $"URL: {videoPlayer.Info.VideoMetaData.GetUrl()}<p>";
+                debugString += $"Video FPS: {videoPlayer.Info.VideoMetaData.GetVideoFps()} Player FPS: {videoPlayer.Info.GetPlayerFps()}<p>";
+                debugString += $"Connection: {(videoPlayer.Info.IsConnectionLost() ? "Lost" : "Connected")}<p>";
+                debugString += $"Video Player Time: {videoPlayer.Info.Time}<p>";
+                debugString += $"Audio Player Time: {videoPlayer.Info.AudioTime}<p>";
+                debugString += $"Video Texture Res: {videoPlayer.Info.VideoMetaData.GetVideoWidth()} x {videoPlayer.Info.VideoMetaData.GetVideoHeight()}<p>";
+                debugString += $"Render Texture Res: {VideoPlayerSelected.videoPlayer.ProjectionTexture.width} x {VideoPlayerSelected.videoPlayer.ProjectionTexture.height}<p>";
+                debugString += $"Video Codec: {GetVideoCodec()}<p>";
+                debugString += $"Audio Mode: {VideoPlayerSelected.videoPlayer.audioPlaybackMode}<p>";
+                debugString += $"Audio Channels: {videoPlayer.Info.VideoMetaData.GetAudioChannels()}";
+
+                var textcat = DebugPage.AddCategory("temp", true, false);
+                textcat.CategoryName = debugString;
 
                 string GetVideoCodec()
                 {
@@ -797,14 +896,14 @@ namespace VideoRemote
 
             if (SponsorSkipEvents != null && SponsorSkipEvents.IsGenerated) SponsorSkipEvents.ClearChildren();
 
-            var skipHeaderCat = SponsorSkipEvents.AddCategory($"");
+            var skipHeaderCat = SponsorSkipEvents.AddCategory($"", false, false);
             skipHeaderCat.AddToggle("Enable", "Enable SponsorBlock for this VideoPlayer", sponsorSkip).OnValueUpdated += action =>
             {
                 sponsorSkip = action;
                 StartSponsorSkip();
             };
 
-            var skipSettings = SponsorSkipEvents.AddCategory($"Segments types to skip");
+            var skipSettings = SponsorSkipEvents.AddCategory($"Segments types to skip", true, false);
             skipSettings.AddToggle("Sponsor", "Skip sponsor segments.<p>Doesn't skip if <5 seconds.", sponsorSkip_sponsor.Value).OnValueUpdated += action =>
             {
                 sponsorSkip_sponsor.Value = action;
@@ -833,20 +932,20 @@ namespace VideoRemote
 
             if (!sponsorSkip)
             {
-                SponsorSkipEvents.AddCategory($"SponsorBlock not enabled");
+                SponsorSkipEvents.AddCategory($"SponsorBlock not enabled", true, false);
             }
             else if (!Utils.IsVideoPlayerValid(VideoPlayerSelected))
             {
-                SponsorSkipEvents.AddCategory($"No video player selected");
+                SponsorSkipEvents.AddCategory($"No video player selected", true, false);
             }
             else if (sponsorskipVideo == "API_Repsonse_Not_Found")
             {
-                SponsorSkipEvents.AddCategory($"Video not found in SponsorBlock API");
+                SponsorSkipEvents.AddCategory($"Video not found in SponsorBlock API", true, false);
             }
             else if (VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl != sponsorskipVideo)
             {
-                SponsorSkipEvents.AddCategory($"SponsorBlock hasn't grabbed current video yet, or no video is playing");
-                SponsorSkipEvents.AddCategory($"Go back a page to refresh this menu");
+                SponsorSkipEvents.AddCategory($"SponsorBlock hasn't grabbed current video yet, or no video is playing", true, false);
+                SponsorSkipEvents.AddCategory($"Go back a page to refresh this menu", true, false);
             }
             else if (sponsorskipResult == null || sponsorskipResult.Length == 0)
             {
@@ -854,13 +953,16 @@ namespace VideoRemote
             }
             else
             {
-                var skipHeader = SponsorSkipEvents.AddCategory($"------------ All events for video ------------");
+                var skipHeader = SponsorSkipEvents.AddCategory($"------------ All events for video ------------", true, false);
 
                 foreach (var x in sponsorskipResult.OrderBy(x => x.segment[0]))
                 {
-                    SponsorSkipEvents.AddCategory($"Type: {Utils.SkipCatSwitch(x.category)}{((x.category == "poi_highlight") ? "   <<<<<<<<<<<<<<" : "")}");
-                    if (x.description != "") SponsorSkipEvents.AddCategory($"Desc: {x.description}");
-                    var skipEvent = SponsorSkipEvents.AddCategory($"{Utils.FormatTime(x.segment[0])} - {Utils.FormatTime(x.segment[1])}");
+                    var stringText = $"Type: {Utils.SkipCatSwitch(x.category)}{((x.category == "poi_highlight") ? "   <<<<<<<<<<<<<<" : "")}<p>";
+                    if (x.description != "") stringText += $"Desc: {x.description}<p>";
+                     stringText += $"{Utils.FormatTime(x.segment[0])} - {Utils.FormatTime(x.segment[1])}<p>";
+
+                    var skipEvent = SponsorSkipEvents.AddCategory($"temp", true, false);
+                    skipEvent.CategoryName = stringText;
 
                     skipEvent.AddButton($"Jump to Start", "VideoPlayerModArrow-Left", $"Set video to start time of event {Utils.FormatTime(x.segment[0])}").OnPress += () =>
                     {
@@ -882,7 +984,7 @@ namespace VideoRemote
                     {
                         if (Utils.IsVideoPlayerValid(VideoPlayerSelected) && VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl == sponsorskipVideo)
                         {//Confirm this video is still on
-                            if (x.segment[1] < VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration() - 5)
+                            if (x.segment[1] > VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration() - 5)
                             { //Skip if <5 seconds from end of video
                                 MelonLogger.Msg($"|SponsorBlock| Not skipping to {Utils.FormatTime(x.segment[1])}, less than 5 seconds till end of video");
                                 QuickMenuAPI.ShowAlertToast($"Not skipping, less than 5 seconds till end of video!", 3);
@@ -902,9 +1004,9 @@ namespace VideoRemote
                         }
                     };
                 }
-                SponsorSkipEvents.AddCategory($"");
-                SponsorSkipEvents.AddCategory($"");
-                SponsorSkipEvents.AddCategory($"Uses SponsorBlock data from https://sponsor.ajay.app/");
+                SponsorSkipEvents.AddCategory($"", false, false);
+                SponsorSkipEvents.AddCategory($"", false, false);
+                SponsorSkipEvents.AddCategory($"Uses SponsorBlock data from https://sponsor.ajay.app/", true, false);
             }
         }
 
@@ -914,14 +1016,14 @@ namespace VideoRemote
             if (savedURLsPage != null && savedURLsPage.IsGenerated) savedURLsPage.ClearChildren();
             if (savedURLs.Count == 0)
             {
-                savedURLsPage.AddCategory($"No saved URLs found");
+                savedURLsPage.AddCategory($"No saved URLs found", true, false);
             }
             else
             {
                 foreach (var x in savedURLs.OrderBy(x => x.Value.Item2).Reverse())
                 {
-                    savedURLsPage.AddCategory(x.Value.Item1);
-                    var urlCat = savedURLsPage.AddCategory(x.Value.Item2.ToString("yyyy'-'MM'-'dd"));
+                    var urlCat = savedURLsPage.AddCategory("temp", true, false);
+                    urlCat.CategoryName = $"{x.Value.Item1}<p>{x.Value.Item2.ToString("yyyy'-'MM'-'dd")}";
                     urlCat.AddButton($"Play Video", "VideoPlayerModPastePlay", $"Play the video: {x.Key}<p>{x.Value.Item1}").OnPress += () =>
                     {
                         if (Utils.IsVideoPlayerValid(VideoPlayerSelected))
@@ -952,9 +1054,58 @@ namespace VideoRemote
             }
         }
 
+        public static void CreatePageURLsHistroyPage()
+        {
+            //MelonLogger.Msg("SavedUrls");
+            if (URLHistoryPage != null && URLHistoryPage.IsGenerated) URLHistoryPage.ClearChildren();
+            if (historyURLs.Count == 0)
+            {
+                URLHistoryPage.AddCategory($"No history found", true, false);
+            }
+            else
+            { //historyURLs
+                foreach (var x in historyURLs.Reverse<(string, string, DateTime)>())
+                {
+                    var urlCat = URLHistoryPage.AddCategory("temp", true, false);
+                    urlCat.CategoryName = $"{x.Item2}<p>{x.Item3.ToString("yyyy'-'MM'-'dd HH:mm")}";
+                    urlCat.AddButton($"Play Video", "VideoPlayerModPastePlay", $"Play the video: {x.Item1}<p>{x.Item2}").OnPress += () =>
+                    {
+                        if (Utils.IsVideoPlayerValid(VideoPlayerSelected))
+                        {
+                            QuickMenuAPI.ShowConfirm("Confirm", $"Play Video?<p><p><p>{x.Item1}<p><p><p>{x.Item2}", () =>
+                            {
+                                VideoPlayerSelected.videoPlayer.SetVideoUrl(x.Item1);
+                                MelonCoroutines.Start(Instance.SetCurrentVideoNameDelay());
+                            }, () => { }, "Yes", "No");
+                        }
+                        else
+                        {
+                            QuickMenuAPI.ShowAlertToast("Video Player Not Selected or does not exist.", 2);
+                            MelonLogger.Msg("Video Player Not Selected or does not exist.");
+                        }
+                    };
+
+                    urlCat.AddButton($"Save URL", "VideoPlayerModSave", $"Stores the current video URL into the ChilloutVR/{FolderRoot} Folder.").OnPress += () =>
+                    {
+                        if (!savedURLs.ContainsKey(x.Item1)) savedURLs.Add(x.Item1, (x.Item2, x.Item3));
+                    };
+                }
+            }
+        }
+
+
         private static void SetCurrentVideoName()
         {
-            videoName.CategoryName = (VideoPlayerSelected != null) ? "Playing: " + Utils.VideoNameFormat(VideoPlayerSelected) : "No video player selected";
+            //"No Video Player Selected"
+            if (Utils.IsVideoPlayerValid(VideoPlayerSelected))
+            {
+                string time = VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.IsLivestream ? "Livestream" :
+                Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Time) + " / " + Utils.FormatTime((float)VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration());
+
+                videoName.CategoryName = Utils.VideoState(VideoPlayerSelected) + Utils.VideoNameFormat(VideoPlayerSelected) + "<p>" + time;
+            }
+            else
+                videoName.CategoryName = "No video player selected";
         }
         System.Collections.IEnumerator SetCurrentVideoNameDelay()
         {//Lazy way to set the name after letting the video load
@@ -965,6 +1116,144 @@ namespace VideoRemote
                 yield return new WaitForSecondsRealtime(1);
                 SetCurrentVideoName();
             }
+        }
+
+        public static void AllURLhistory()
+        {
+            if (Time.time < historyLastCheck + 10)
+                return;
+            try
+            {
+                //var sw = Stopwatch.StartNew();
+                historyLastCheck = Time.time;
+                foreach (var CVRvp in GameObject.FindObjectsOfType<CVRVideoPlayer>())
+                {
+                    List<IVideoPlayerUi> savedvpui = Traverse.Create(CVRvp).Field("VideoPlayerUis").GetValue<List<IVideoPlayerUi>>();
+                    foreach (ViewManagerVideoPlayer vp in savedvpui.Cast<ViewManagerVideoPlayer>())
+                    {
+                        if (!Utils.IsVideoPlayerValid(vp))
+                            continue;
+                        if (!String.IsNullOrWhiteSpace(vp.videoUrl.text))
+                        {
+                            string vidname = Utils.VideoNameFormat(vp);
+                            var keyToCheck = vp.videoUrl.text;
+                            if (!historyURLs.Reverse<(string, string, DateTime)>().Take(10).Any(tuple => tuple.Item1 == keyToCheck))
+                            {
+                                historyURLs.Add((vp.videoUrl.text, vidname, DateTime.Now));
+                                SaveHistoryUrl(vidname, vp.videoUrl.text);
+                                //MelonLogger.Msg($"Adding to history: {vidname} - {vp.videoUrl.text}");
+                            }
+                        }
+                    }
+                }
+                //var endtime = sw.ElapsedMilliseconds;
+                //MelonLogger.Msg($"Time {endtime}");
+            }
+            catch (Exception ex) { MelonLogger.Error("Error in AllURLhistory \n" + ex.ToString()); }
+        }
+
+        public static void SingleURLhistory()
+        {
+            if (!Utils.IsVideoPlayerValid(VideoPlayerSelected))
+                return;
+            if (String.IsNullOrWhiteSpace(VideoPlayerSelected.videoUrl.text))
+                return;
+            string vidname = Utils.VideoNameFormat(VideoPlayerSelected);
+            var keyToCheck = VideoPlayerSelected.videoUrl.text;
+
+            if (!historyURLs.Reverse<(string, string, DateTime)>().Take(10).Any(tuple => tuple.Item1 == keyToCheck))
+            {
+                historyURLs.Add((VideoPlayerSelected.videoUrl.text, vidname, DateTime.Now));
+                SaveHistoryUrl(vidname, VideoPlayerSelected.videoUrl.text);
+                //MelonLogger.Msg($"Adding {vidname} {VideoPlayerSelected.videoUrl.text}");
+            }
+        }
+
+        private static void SaveHistoryUrl(string vidname, string url)
+        {
+            var dateFormatOut = "yyyy'-'MM'-'dd";
+            if (!String.IsNullOrWhiteSpace(url))
+            {
+                if (!File.Exists(FolderRoot + histroyURLFileName))
+                {
+                    using StreamWriter sw = File.CreateText(FolderRoot + histroyURLFileName);
+                    sw.WriteLine(DateTime.Now.ToString(dateFormatOut) + " ␟ " + vidname + " ␟ " + url);
+                }
+                else
+                {
+                    if (File.Exists(FolderRoot + histroyURLFileName))
+                    {
+                        using StreamWriter sw = File.AppendText(FolderRoot + histroyURLFileName);
+                        sw.WriteLine(DateTime.Now.ToString(dateFormatOut) + " ␟ " + vidname + " ␟ " + url);
+                    }
+                }
+            }
+        }
+
+        public System.Collections.IEnumerator ProccessJoinBufferInit()
+        {
+            yield return new WaitForSecondsRealtime(.25f);
+            if (!vidPlayerJoinCoroutine_Run)
+            {
+                MelonLogger.Msg($"Starting ProccessJoinBuffer");
+                MelonCoroutines.Start(ProccessJoinBuffer());
+            }
+        }
+
+        public System.Collections.IEnumerator ProccessJoinBuffer()
+        {
+            vidPlayerJoinCoroutine_Run = true;
+            while (vidPlayerJoinBuffer.Count >= 0)
+            {
+                try
+                {
+                    //MelonLogger.Msg($"-------------------------------------------------------------------");
+                    //MelonLogger.Msg($"Loop - {Time.time} - {vidPlayerJoinBuffer.Count}");
+                    //foreach (var item in vidPlayerJoinBuffer)
+                    //    MelonLogger.Msg($"{item.Key} -- {item.Value}");
+                    //foreach (var vidPlayer in GameObject.FindObjectsOfType<CVRVideoPlayer>(false))
+                    //    MelonLogger.Msg($"Player P: {vidPlayer.playerId}");
+                    //MelonLogger.Msg($"-------------------------------------------------------------------");
+
+                    foreach (var buffer in vidPlayerJoinBuffer)
+                    {// (url, isPaused, playerName, objPath, Time.time);
+                        //MelonLogger.Msg($"Loop VidBuffer - {Time.time} - {buffer.Key}");
+                        if (buffer.Value.Item5 + 60f < Time.time  || buffer.Value.Item1 == null)
+                        {
+                            //MelonLogger.Msg($"Removing - {buffer.Key}");
+                            vidJoinBuffer_toRemove.Add(buffer.Key);
+                            continue;
+                        }
+
+                        var foundPlayer = CVRWorld.Instance.VideoPlayers.Find((Predicate<CVRVideoPlayer>)(match => match.playerId == buffer.Key));
+                        if (foundPlayer != null)
+                        {
+                            //MelonLogger.Msg($"Match Found");
+                            //vidPlayer.SetControlPermission(buffer.Value.Item5, false, buffer.Value.Item6);
+                            foundPlayer.lastNetworkVideoUrl = buffer.Value.Item1;
+                            foundPlayer.lastNetworkVideoPath = buffer.Value.Item1;
+                            if (foundPlayer.syncEnabled)
+                            {
+                                foundPlayer.SetVideoUrl(buffer.Value.Item1, false, buffer.Value.Item4, buffer.Value.Item3, buffer.Value.Item2);
+                                //MelonLogger.Msg($"Match Set {buffer.Value}");
+                            }
+                            vidJoinBuffer_toRemove.Add(buffer.Key);
+                        } 
+                    }
+                }
+                catch (Exception ex) { MelonLogger.Error("Error in Buffer Loop \n" + ex.ToString()); vidPlayerJoinBuffer.Clear(); }
+
+                yield return new WaitForSecondsRealtime(2.5f);
+
+                try
+                {
+                    foreach (string key in vidJoinBuffer_toRemove)
+                        vidPlayerJoinBuffer.TryRemove(key, out _);
+                    vidJoinBuffer_toRemove.Clear();
+                }
+                catch (Exception ex) { MelonLogger.Error("Error vidJoinBuffer_toRemove \n" + ex.ToString()); vidPlayerJoinBuffer.Clear(); }
+            }
+            vidPlayerJoinCoroutine_Run = false;
         }
 
         System.Collections.IEnumerator ReloadVideo()
@@ -1015,17 +1304,18 @@ namespace VideoRemote
                         }
                     }
                 }
-                catch (Exception ex) { MelonLogger.Warning("Error getting default videoplayer \n" + ex.ToString()); }
-                
+                catch (Exception ex) { MelonLogger.Error("Error getting default videoplayer \n" + ex.ToString()); }
                 SetCurrentVideoName();
+                SingleURLhistory();
                 if (VideoPlayerSelected != null)
                 {
+
                     volumeSilder.SetSliderValue(VideoPlayerSelected.videoPlayer.playbackVolume);
                 }
             }
         }
 
-        public static void RefreshPage()
+        public static void RefreshPage(bool laggyPages)
         {
             if (lastQMPage == VideoFolderString)
             {
@@ -1039,7 +1329,7 @@ namespace VideoRemote
             {
                 CreatePageSponsorSkip();
             }
-            if (lastQMPage == savedURLsPageString)
+            if (lastQMPage == savedURLsPageString && laggyPages)
             {
                 CreatePagesavedURLsPage();
             }
@@ -1055,27 +1345,32 @@ namespace VideoRemote
             {
                 CreatePageDebug();
             }
+            if (lastQMPage == URLHistoryPageString && laggyPages)
+            {
+                CreatePageURLsHistroyPage();
+                SingleURLhistory();
+            }
         }
 
         //So many methods to make sure this refreshes on change
         public static void OnPageOpen(string targetPage, string lastPage)
         {
             lastQMPage = targetPage;
-            RefreshPage();
+            RefreshPage(true);
             RefreshMainPage();
         }
         public static void OnPageBack(string targetPage, string lastPage)
         {
             lastQMPage = targetPage;
-            RefreshPage();
+            RefreshPage(true);
             RefreshMainPage();
         }
-        private static void QMtoggle(bool __0)
+        public static void QMtoggle(bool __0)
         {
             if (__0)
             {
+                RefreshPage(false);
                 RefreshMainPage();
-                //RefreshPage();
             }
         }
 
@@ -1132,32 +1427,36 @@ namespace VideoRemote
         public static System.Collections.IEnumerator SponsorSkipCheck()
         {
             bool startedSkips = false;
-            while (sponsorSkip && VideoPlayerSelected?.videoPlayer?.VideoPlayer != null)
+            while (sponsorSkip)
             {
-                yield return new WaitForSeconds(1f);
-                if (VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl != lastvideo && !String.IsNullOrWhiteSpace(VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl))
+                if (Utils.IsVideoPlayerValid(VideoPlayerSelected))
                 {
-                    startedSkips = false;
-                    string newVid = VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl;
-                    lastvideo = newVid;
-                    MelonLogger.Msg($"|SponsorBlock| New video found: {newVid}");
-                    GetAsync(newVid);               
-                }
-                else if (VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl == sponsorskipVideo && !startedSkips)
-                {
-                    MelonLogger.Msg($"|SponsorBlock| Current video has skip info - {sponsorskipVideo}");
-                    //MelonLogger.Msg($"|SponsorBlock| Raw");
-                    //foreach (var x in sponsorskipResult)
-                    //{
-                    //    MelonLogger.Msg($"|SponsorBlock| {x.category} Segment: {Utils.FormatTime(x.segment[0])} - {Utils.FormatTime(x.segment[1])} Seconds:{x.segment[0]}-{x.segment[1]}");
-                    //}
+                    yield return new WaitForSeconds(1f);
+                    if (VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl != lastvideo && !String.IsNullOrWhiteSpace(VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl))
+                    {
+                        startedSkips = false;
+                        string newVid = VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl;
+                        lastvideo = newVid;
+                        MelonLogger.Msg($"|SponsorBlock| New video found: {newVid}");
+                        GetAsync(newVid);
+                    }
+                    else if (VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl == sponsorskipVideo && !startedSkips)
+                    {
+                        MelonLogger.Msg($"|SponsorBlock| Current video has skip info - {sponsorskipVideo}");
+                        //MelonLogger.Msg($"|SponsorBlock| Raw");
+                        //foreach (var x in sponsorskipResult)
+                        //{
+                        //    MelonLogger.Msg($"|SponsorBlock| {x.category} Segment: {Utils.FormatTime(x.segment[0])} - {Utils.FormatTime(x.segment[1])} Seconds:{x.segment[0]}-{x.segment[1]}");
+                        //}
 
-                    PrepSkipList();
-                    startedSkips = true;
-                    if (sponsorSkipLiveCoroutine != null) MelonCoroutines.Stop(sponsorSkipLiveCoroutine);
-                    sponsorSkipLiveCoroutine = MelonCoroutines.Start(SponsorSkipping());
+                        PrepSkipList();
+                        startedSkips = true;
+                        lastskip = new float[2];
+                        if (sponsorSkipLiveCoroutine != null) MelonCoroutines.Stop(sponsorSkipLiveCoroutine);
+                        sponsorSkipLiveCoroutine = MelonCoroutines.Start(SponsorSkipping());
 
-                    CreatePageSponsorSkip();
+                        CreatePageSponsorSkip();
+                    }
                 }
             }
             sponsorSkip = false;
@@ -1172,11 +1471,11 @@ namespace VideoRemote
                 return;
             //https://stackoverflow.com/a/39777772
             var uri = new Uri(url);
-            var query = HttpUtility.ParseQueryString(uri.Query);
-            var videoId = string.Empty;
-            if (query.AllKeys.Contains("v"))
+            var query = Utils.ExtractVideoIdFromUri(uri);
+            var videoId = "";
+            if (query != "")
             {
-                videoId = query["v"];
+                videoId = query;
             }
             else
             {
@@ -1228,12 +1527,19 @@ namespace VideoRemote
 
         public static System.Collections.IEnumerator SponsorSkipping()
         {
-            var vidDur = VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration();
             while (sponsorSkip && VideoPlayerSelected?.videoPlayer?.VideoPlayer != null && VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl == sponsorskipVideo)
             {
+                //MelonLogger.Msg($"--SponsorSkipping Loop--");
                 yield return new WaitForSeconds(.25f);
+                var vidDur = VideoPlayerSelected.videoPlayer.VideoPlayer.Info.VideoMetaData.GetDuration();
                 foreach (var x in sponsorskips)
                 { //Check every x seconds if within a skip, if so, jump to end of skip
+                    //MelonLogger.Msg($"VideoPlayer.Time: {VideoPlayerSelected.videoPlayer.VideoPlayer.Time}");
+                    //MelonLogger.Msg($"vidDur: {vidDur}");
+                    //MelonLogger.Msg($"{VideoPlayerSelected.videoPlayer.VideoPlayer.Time > x.Item2[0]} | {VideoPlayerSelected.videoPlayer.VideoPlayer.Time < x.Item2[1] - 5f}");
+                    //MelonLogger.Msg($"{x.Item2[0] != lastskip[0]} | {x.Item2[1] != lastskip[1]}");
+                    //MelonLogger.Msg($"{x.Item2[0] < vidDur - 5} | {x.Item2[1] < vidDur - 5}");
+
                     if (VideoPlayerSelected.videoPlayer.VideoPlayer.Time > x.Item2[0] && VideoPlayerSelected.videoPlayer.VideoPlayer.Time < x.Item2[1] - 5f  //Don't skip if close to end
                         && x.Item2[0] != lastskip[0] && x.Item2[1] != lastskip[1]//Don't repeat skips
                         && x.Item2[0] < vidDur - 5 && x.Item2[1] < vidDur - 5)//Do not skip to very end
