@@ -33,7 +33,7 @@ namespace VideoRemote
     {
         public const string Name = "Video Remote";
         public const string Author = "Shin, Nirvash";
-        public const string Version = "1.7.5";
+        public const string Version = "1.7.8";
         public const string Description = "This allows you to use the video player with the menu.";
         public const string DownloadLink = "https://github.com/Nirv-git/VideoRemote/releases";
     }
