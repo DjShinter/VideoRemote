@@ -1,37 +1,31 @@
-﻿using ABI.CCK.Components;
-using ABI_RC.Core.Networking;
-using ABI_RC.Core.Savior;
-using ABI_RC.Core.UI;
-using ABI_RC.VideoPlayer;
-using ABI_RC.VideoPlayer.Scripts;
+﻿using ABI_RC.VideoPlayer.Scripts;
 using BTKUILib;
-using BTKUILib.UIObjects;
-using BTKUILib.UIObjects.Components;
-using HarmonyLib;
 using MelonLoader;
-using Newtonsoft.Json;
-using Semver;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Reflection;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-
+using System.Reflection;
+using BTKUILib.UIObjects;
+using BTKUILib.UIObjects.Components;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.IO;
+using System;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+using Semver;
+using ABI.CCK.Components;
+using HarmonyLib;
+using System.Net;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using ABI_RC.Core.UI;
+using ABI_RC.VideoPlayer;
+using ABI_RC.Core.Networking;
+using ABI_RC.Core.Savior;
 
 namespace VideoRemote
 {
-    using ABI_RC.Core.Networking.API;
-    using ABI_RC.Core.Networking.API.Responses;
-    using ABI_RC.Core.Player;
-    using Kafe.RequestLib;
-
     public static class ModBuildInfo
     {
         public const string Name = "Video Remote";
@@ -81,9 +75,6 @@ namespace VideoRemote
 
         private static bool TryingToReplay = false;
 
-        private static bool requestLibInstalled = true;
-
-
         private static int timeStampHour = 0;
         private static int timeStampMin = 0;
         private static int timeStampSec = 0;
@@ -113,15 +104,6 @@ namespace VideoRemote
                 MelonLogger.Error("Please download an updated copy for BTKUILib!");
                 return;
             }
-
-
-            if (!RegisteredMelons.Any(x => x.Info.Name.Equals("RequestLib")))
-            {
-                MelonLogger.Error("RequestLib was not detected or it is outdated! VideoRemote cannot function without it!");
-                MelonLogger.Error("Please download an updated copy for RequestLib!");
-                requestLibInstalled = false;
-                return;
-            }
             _initalized = false;
             VideoPlayerSelected = null;
 
@@ -130,45 +112,6 @@ namespace VideoRemote
                 Directory.CreateDirectory(FolderRoot);
             }
             LoadURLs();
-
-            if (requestLibInstalled)
-            {
-                API.RegisterMod(new API.RequestHandlers()
-                                    {
-                                        OnResponseSent = (request, response) =>
-                                            {
-                                                if (response.Result == API.RequestResult.Accepted)
-                                                {
-                                                    if (VideoPlayerSelected != null)
-                                                    {
-                                                        VideoPlayerPlay(request.Metadata);
-
-                                                    }
-                                                    else
-                                                    {
-                                                        MelonLogger.Msg($"No Video Player Selected, this was the link requested: {request.Metadata}");
-                                                    }
-                                                }
-                                            }
-                                    });
-            }
-           
-                    
-
-        }
-
-
-        public void VideoPlayerPlay(string url)
-        {
-            try
-            {
-                VideoPlayerSelected.urlInputField.text = url;
-                VideoPlayerSelected.SetInputUrl();
-            }
-            catch (Exception ex)
-            {
-                MelonLogger.Error(ex.Message);
-            }
         }
 
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
@@ -199,6 +142,8 @@ namespace VideoRemote
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModSound", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Sound.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModKeys", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Keys.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModVideoPlayer", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.VideoPlayer.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModVideoPlayer-World", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.VideoPlayer-World.png"));
+            QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModVideoPlayer-Prop", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.VideoPlayer-Prop.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModPastePlay", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.PastePlay.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModSave", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Save.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModSponsorSkip", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.SponsorSkip.png"));
@@ -207,13 +152,6 @@ namespace VideoRemote
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModAdvSettings2", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.AdvSettings.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModReloadVideo", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.ReloadVideo.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModLoadURLs", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.LoadURLs.png"));
-
-            
-            
-            /* NIRVASH WHAT IS THIS?? XD
-            /  Please remove these or include the files
-            /
-            /
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModUp", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Up.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModTimestamp", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Timestamp.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerModClock-Hours", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Clock-Hours.png"));
@@ -230,8 +168,6 @@ namespace VideoRemote
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerMod-jog-1", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Minus1.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerMod-jog1", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Plus1.png"));
             QuickMenuAPI.PrepareIcon("VideoRemoteMod", "VideoPlayerMod-jog5", Assembly.GetExecutingAssembly().GetManifestResourceStream("VideoRemote.UI.Images.Plus5.png"));
-            */
-
 
             SetupUI();
             QuickMenuAPI.OnOpenedPage += OnPageOpen;
@@ -344,112 +280,9 @@ namespace VideoRemote
                     pickupable = action;
                     UpdateLocalScreen();
                 };
-                var catRequestLib = CustomPage.AddCategory("Request Library", true, false);
-                var catRequestLibPage = catRequestLib.AddPage("Request Video", "VideoPlayerModLogo", "Allow you to request a video to the Instance Owner", "VideoRemoteMod");
-                var catRequestLibInner = catRequestLibPage.AddCategory("Request Library", true, false);
-
-                if (requestLibInstalled)
-                {
-                    catRequestLibInner.AddButton("Request Video from Clipboard", "VideoPlayerModPastePlay", "Send request to Instance Owner from your clipboard.").OnPress += () =>
-                        {
-                            SendRequestToInstanceOwner(GUIUtility.systemCopyBuffer);
-                        };
-                }
-                else
-                {
-
-                    catRequestLibInner.AddButton("Request Video from Clipboard", "VideoPlayerModPastePlay", "Send request to Instance Owner from your clipboard.").OnPress += () =>
-                    {
-                        QuickMenuAPI.ShowAlertToast("Request Library not installed", 3);
-                        MelonLogger.Msg("Request Library not installed");
-                    };
-
-                }
-                
             }
         }
 
-
-
-
-        internal static async void SendRequestToInstanceOwner(string link)
-        {
-            if (requestLibInstalled)
-            {
-
-          
-            MelonLogger.Msg($"SendRequestToInstanceOwner");
-            var currentID = MetaPort.Instance.CurrentInstanceId;
-            string instanceOwner = "";
-            if (currentID != null)
-            {
-                instanceOwner = await ApiRequests.RequestInstanceDetailsTask(currentID);
-            }
-            MelonLogger.Msg($"SendRequestToInstanceOwner - {link} - {instanceOwner}");
-            var requestMessage = $"Can you play {link}";
-            // Send the request and call out function OnResponse whenever we get the response
-            if (instanceOwner != MetaPort.Instance.ownerId)
-            {
-                API.SendRequest(new API.Request(await ApiRequests.RequestInstanceDetailsTask(currentID), requestMessage, OnResponse, link));
-            }
-            }
-        }
-
-        //https://github.com/kafeijao/Kafe_CVR_Mods/blob/6e2b44b2ed3db22d21096ca53177be3a298a4f46/OSC/Utils/ApiRequests.cs#L7
-    internal static class ApiRequests
-    {
-        internal static async System.Threading.Tasks.Task<string> RequestInstanceDetailsTask(string instanceID)
-        {
-
-            MelonLogger.Msg($"[API] Fetching instance {instanceID} details...");
-            BaseResponse<InstanceDetailsResponse> response;
-            try
-            {
-                var payload = new { instanceID = instanceID };
-                response = await ApiConnection.MakeRequest<InstanceDetailsResponse>(ApiConnection.ApiOperation.InstanceDetail, payload);
-            }
-            catch (Exception ex)
-            {
-                MelonLogger.Error($"[API] Fetching instance {instanceID} details has Failed!");
-                MelonLogger.Error(ex);
-                return null;
-            }
-            if (response == null)
-            {
-                MelonLogger.Msg($"[API] Fetching instance {instanceID} name has Failed! Response came back empty.");
-                return null;
-            }
-            MelonLogger.Msg($"[API] Fetched instance {instanceID} name successfully! Owner.Id: {response.Data.Owner.Id} Owner.Name: {response.Data.Owner.Name} Name: {response.Data.Name} World: {response.Data.World.Name} CurrentPlayerCount: {response.Data.CurrentPlayerCount}");
-            return response.Data.Owner.Id;
-        }
-    }
-    private static void OnResponse(API.Request request, API.Response response)
-    {
-        if (requestLibInstalled)
-        {
-
-        
-        // using kafeijao's example
-
-        // Here you can handle the response for the request :)
-
-        var playerName = CVRPlayerManager.Instance.TryGetPlayerName(request.TargetPlayerGuid);
-        switch (response.Result)
-        {
-            case API.RequestResult.Accepted:
-                MelonLogger.Msg($"The player {playerName} has ACCEPTED your VIDEO!");
-                break;
-            case API.RequestResult.Declined:
-                MelonLogger.Msg($"The player {playerName} has DECLINED your VIDEO! {response.Metadata}");
-                break;
-            case API.RequestResult.TimedOut:
-                MelonLogger.Msg($"The request to the player {playerName} has TIMED OUT...");
-                break;
-        }
-
-        }
-
-    }
 
         private static void SaveUrl(ViewManagerVideoPlayer vp)
         {
@@ -482,7 +315,6 @@ namespace VideoRemote
                 MelonLogger.Msg("There was nothing to save.");
             }
         }
-
 
         private static void RemoveURL(string videoUrl)
         {
@@ -533,7 +365,8 @@ namespace VideoRemote
                     foreach (ViewManagerVideoPlayer vp in savedvpui.Cast<ViewManagerVideoPlayer>())
                     {
                         var dist = Math.Abs(Vector3.Distance(CVRvp.gameObject.transform.position, Camera.main.transform.position)).ToString("F2").TrimEnd('0');
-                        var button = VideoPlayerList.AddButton($"Video Player\n{Utils.GetPlayerType(CVRvp.gameObject.transform)}", "VideoPlayerModVideoPlayer", $"Video:{Utils.VideoNameFormat(vp)}, Distance:{dist}<p>{Utils.GetPath(CVRvp.gameObject.transform)}");// | {CVRvp.playerId}");
+                        var playerType = Utils.GetPlayerType(CVRvp.gameObject.transform);
+                        var button = VideoPlayerList.AddButton($"Video Player\n{playerType}", $"{(playerType == "Prop" ? "VideoPlayerModVideoPlayer-Prop" : "VideoPlayerModVideoPlayer-World")}", $"Video:{Utils.VideoNameFormat(vp)}, Distance:{dist}<p>{Utils.GetPath(CVRvp.gameObject.transform)}");// | {CVRvp.playerId}");
                         button.OnPress += () =>
                         {
                             VideoPlayerSelected = vp;
@@ -767,7 +600,7 @@ namespace VideoRemote
                     {
                         QuickMenuAPI.ShowConfirm("Confirm", $"Play Video?<p><p><p>Blank Video<p><p><p>1min long, Black, 480p", () =>
                         {
-                            VideoPlayerSelected.videoPlayer.SetVideoUrl("https://www.youtube.com/watch?v=k9NfB9-CR1k");
+                            VideoPlayerSelected.videoPlayer.SetVideoUrl("https://www.youtube.com/watch?v=-Pg819il8lY");
                             MelonCoroutines.Start(Instance.SetCurrentVideoNameDelay());
                         }, () => { }, "Yes", "No");
                     }
@@ -1392,7 +1225,7 @@ namespace VideoRemote
                             continue;
                         }
 
-                        var foundPlayer = CVRWorld.Instance.VideoPlayers.Find((Predicate<CVRVideoPlayer>)(match => match.playerId == buffer.Key));
+                        var foundPlayer = CVRWorld.Instance._registeredVideoPlayers.Find((Predicate<CVRVideoPlayer>)(match => match.playerId == buffer.Key));
                         if (foundPlayer != null)
                         {
                             //MelonLogger.Msg($"Match Found");
@@ -1598,7 +1431,6 @@ namespace VideoRemote
             {
                 if (Utils.IsVideoPlayerValid(VideoPlayerSelected))
                 {
-                    yield return new WaitForSeconds(1f);
                     if (VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl != lastvideo && !String.IsNullOrWhiteSpace(VideoPlayerSelected.videoPlayer.lastNetworkVideoUrl))
                     {
                         startedSkips = false;
@@ -1625,6 +1457,7 @@ namespace VideoRemote
                         CreatePageSponsorSkip();
                     }
                 }
+                yield return new WaitForSeconds(1f);
             }
             sponsorSkip = false;
         }

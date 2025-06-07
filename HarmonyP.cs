@@ -1,17 +1,11 @@
 ﻿using MelonLoader;
 using UnityEngine;
 using System;
-using System.Linq;
-using System.Collections.Generic;
-using System.Collections;
-using System.Collections.Concurrent;
-using System.Reflection;
 using ABI.CCK.Components;
 using HarmonyLib;
 using ABI_RC.Core.InteractionSystem;
 using ABI_RC.Core.Player;
 using DarkRift;
-using DarkRift.Client;
 using ABI_RC.Core.Networking;
 using ABI_RC.Core.Networking.IO.UserGeneratedContent;
 
@@ -24,8 +18,8 @@ namespace VideoRemote
     internal class HarmonyPatches
     {
         [HarmonyPostfix]
-        [HarmonyPatch(typeof(ABI_RC.Core.Networking.IO.UserGeneratedContent.VideoPlayer), nameof(VideoPlayer.HandleVideoPlayerCommand))]
-        internal static void OnHandleVideoPlayerCommand(ABI_RC.Core.Networking.IO.UserGeneratedContent.VideoPlayer.VideoPlayerCommandTypes_t t, Message message)
+        [HarmonyPatch(typeof(VideoPlayer), nameof(VideoPlayer.HandleVideoPlayerCommand))]
+        internal static void OnHandleVideoPlayerCommand(VideoPlayer.VideoPlayerCommandTypes_t t, Message message)
         {
             if (VideoRemoteMod.worldLastJoin + 30 > Time.time && message.Tag == (ushort)Tags.VideoPlayerSetUrl)
             {
@@ -37,7 +31,7 @@ namespace VideoRemote
                 string objPath = reader.ReadString();
                 bool isPaused = reader.ReadBoolean();
                 //var currentPlayers = GameObject.FindObjectsOfType<CVRVideoPlayer>(false);
-                if (CVRWorld.Instance.VideoPlayers.Find((Predicate<CVRVideoPlayer>)(match => match.playerId == vidPlayerID)))
+                if (CVRWorld.Instance._registeredVideoPlayers.Find((Predicate<CVRVideoPlayer>)(match => match.playerId == vidPlayerID)))
                 { //If the video player exists in world, this doesn't need to run
                     if (VideoRemoteMod.vidPlayerJoinBuffer.ContainsKey(vidPlayerID) && VideoRemoteMod.vidPlayerJoinBuffer[vidPlayerID].Item1 != url)
                         VideoRemoteMod.vidJoinBuffer_toRemove.Add(vidPlayerID); //If another command comes in while we have one in the buffer, drop past one from buffer
