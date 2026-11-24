@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using ABI_RC.VideoPlayer.Scripts;
 using MelonLoader;
@@ -10,18 +8,26 @@ using UnityEngine;
 
 namespace VideoRemote
 {
-    public static class Utils
+    internal static class Utils
     {
-        public static string GetPath(this Transform current)
-        { //http://answers.unity.com/answers/261847/view.html
+        private const string YoutubeLinkRegex = @"(?:.+?)?(?:\/v\/|watch\/|\?v=|\&v=|youtu\.be\/|\/v=|^youtu\.be\/)([a-zA-Z0-9_-]{11})+";
+
+        private static readonly Regex regexExtractId = new Regex(YoutubeLinkRegex, RegexOptions.Compiled);
+
+        private static readonly string[] validAuthorities = { "youtube.com", "www.youtube.com", "youtu.be", "www.youtu.be" };
+
+        // http://answers.unity.com/answers/261847/view.html
+        internal static string GetPath(this Transform current)
+        {
             if (current.parent == null)
                 return "World:" + current.name;
             if (current.name.Contains("CVRSpawnable_"))
                 return "Prop:";
             return current.parent.GetPath() + "/ " + current.name;
         }
-        public static string GetPlayerType(this Transform current)
-        { //http://answers.unity.com/answers/261847/view.html
+
+        internal static string GetPlayerType(this Transform current)
+        {
             if (current.parent == null)
                 return "World";
             if (current.name.Contains("CVRSpawnable_"))
@@ -31,108 +37,82 @@ namespace VideoRemote
             return current.parent.GetPlayerType();
         }
 
-        public static bool IsVideoPlayerValid(ViewManagerVideoPlayer vidPlay)
+        internal static bool IsVideoPlayerValid(ViewManagerVideoPlayer vidPlay)
         {
-            return (vidPlay != null) && !(vidPlay?.videoPlayer?.VideoPlayer.Equals(null) ?? true)  ; 
+            return vidPlay != null && !(vidPlay?.videoPlayer?.VideoPlayer?.Equals(null) ?? true);
         }
 
-        public static string VideoState(ViewManagerVideoPlayer vidPlay)
+        internal static string VideoState(ViewManagerVideoPlayer vidPlay)
         {
-            if (vidPlay?.videoName?.text.Equals(null) ?? true)
-                return "";
-
-            if (vidPlay.videoName.text.Contains("Currently Playing:"))
-                return "Playing: ";
-            if (vidPlay.videoName.text.Contains("Currently Paused:"))
-                return "Paused: ";
-
+            if (vidPlay?.videoName?.text == null) return "";
+            if (vidPlay.videoName.text.Contains("Currently Playing:")) return "Playing: ";
+            if (vidPlay.videoName.text.Contains("Currently Paused:")) return "Paused: ";
             return "";
         }
 
-        public static string VideoNameFormat(ViewManagerVideoPlayer vidPlay)
+        internal static string VideoNameFormat(ViewManagerVideoPlayer vidPlay)
         {
-            //"Currently Paused:"
-            //"Currently Playing:"
-            if (vidPlay?.videoName?.text.Equals(null) ?? true)
-                return "No video player";
-
-            if (vidPlay.videoName.text.Length < 25)
-                return "No video playing";
-
+            if (vidPlay?.videoName?.text == null) return "No video player";
+            if (vidPlay.videoName.text.Length < 25) return "No video playing";
             if (vidPlay.videoName.text.Contains("Currently Playing:"))
                 return vidPlay.videoName.text.Remove(0, 26);
             if (vidPlay.videoName.text.Contains("Currently Paused:"))
                 return vidPlay.videoName.text.Remove(0, 25);
-
-            var name = vidPlay.videoName.text.Remove(0, 26);
-            return (name != "eo selected") ? name : "No video playing";
+            var text = vidPlay.videoName.text.Remove(0, 26);
+            return (text != "eo selected") ? text : "No video playing";
         }
 
-
-        public static string SkipCatSwitch(string value)
+        internal static string SkipCatSwitch(string value)
         {
             switch (value)
             {
-                case "sponsor": return "Sponsor";
-                case "selfpromo": return "Selfpromo";
-                case "interaction": return "Interaction";
-                case "intro": return "Intro";
-                case "outro": return "Outro";
-                case "preview": return "Preview";
-                case "music_offtopic": return "Music Offtopic";
-                case "poi_highlight": return "Highlight";
-                case "chapter": return "Chapter";
-                default: return $"Unknown: {value}";
+                case "sponsor":         return "Sponsor";
+                case "selfpromo":       return "Selfpromo";
+                case "interaction":     return "Interaction";
+                case "intro":           return "Intro";
+                case "outro":           return "Outro";
+                case "preview":         return "Preview";
+                case "music_offtopic":  return "Music Offtopic";
+                case "poi_highlight":   return "Highlight";
+                case "chapter":         return "Chapter";
+                default:                return "Unknown: " + value;
             }
         }
 
-        public static string FormatTime(float seconds)
+        internal static string FormatTime(float seconds)
         {
-            TimeSpan time = TimeSpan.FromSeconds(seconds);
-            return time.ToString(@"hh\:mm\:ss");
+            return TimeSpan.FromSeconds(seconds).ToString("hh\\:mm\\:ss");
         }
 
-        public static int GetTimeSeg(float seconds, string type)
+        internal static int GetTimeSeg(float seconds, string type)
         {
-            TimeSpan time = TimeSpan.FromSeconds(seconds);
+            var t = TimeSpan.FromSeconds(seconds);
             switch (type)
             {
-                case "hour": return int.Parse(time.ToString(@"hh"));
-                case "min": return int.Parse(time.ToString(@"mm"));
-                case "sec": return int.Parse(time.ToString(@"ss"));
-                default: return 0;
+                case "hour": return int.Parse(t.ToString("hh"));
+                case "min":  return int.Parse(t.ToString("mm"));
+                case "sec":  return int.Parse(t.ToString("ss"));
+                default:     return 0;
             }
         }
 
-        public static DateTime ParseDate(string value, string format)
+        internal static DateTime ParseDate(string value, string format)
         {
-            if (DateTime.TryParseExact(value, format, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dt))
-            {
-                return dt;
-            }
-            MelonLogger.Msg(ConsoleColor.Red, $"Date Error: {value}");
+            if (DateTime.TryParseExact(value, format, CultureInfo.InvariantCulture, DateTimeStyles.None, out var result))
+                return result;
+            MelonLogger.Msg(ConsoleColor.Red, "Date Error: " + value);
             return DateTime.MinValue;
         }
 
-        //https://stackoverflow.com/a/39784693
-        private const string YoutubeLinkRegex = "(?:.+?)?(?:\\/v\\/|watch\\/|\\?v=|\\&v=|youtu\\.be\\/|\\/v=|^youtu\\.be\\/)([a-zA-Z0-9_-]{11})+";
-        private static Regex regexExtractId = new Regex(YoutubeLinkRegex, RegexOptions.Compiled);
-        private static string[] validAuthorities = { "youtube.com", "www.youtube.com", "youtu.be", "www.youtu.be" };
-        public static string ExtractVideoIdFromUri(Uri uri)
+        internal static string ExtractVideoIdFromUri(Uri uri)
         {
             try
             {
-                string authority = new UriBuilder(uri).Uri.Authority.ToLower();
-
-                //check if the url is a youtube url
+                var authority = new UriBuilder(uri).Uri.Authority.ToLower();
                 if (validAuthorities.Contains(authority))
                 {
-                    //and extract the id
-                    var regRes = regexExtractId.Match(uri.ToString());
-                    if (regRes.Success)
-                    {
-                        return regRes.Groups[1].Value;
-                    }
+                    var match = regexExtractId.Match(uri.ToString());
+                    if (match.Success) return match.Groups[1].Value;
                 }
             }
             catch { }
