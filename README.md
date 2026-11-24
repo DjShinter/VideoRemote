@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://i.imgur.com/6htHu3b.png" />
+  <img src="https://raw.githubusercontent.com/DjShinter/VideoRemote/master/docs/screenshot.png" alt="Video Remote in the ChilloutVR Quick Menu" />
 </p>
 
 # Video Remote Mod
