@@ -7,7 +7,7 @@
 This is a **MelonLoader** Mod for **ChilloutVR**, 
 The **Video Remote mod** adds QOL changes to **ChilloutVR** being able to have an easier time to do certain functions while in VR & Desktop.
 
-**ChilloutVR website**: https://abinteractive.net
+**ChilloutVR website**: https://chilloutvr.net
 
 **Steam Store Page**: https://store.steampowered.com/app/661130/ChilloutVR/
 
