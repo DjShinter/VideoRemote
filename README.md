@@ -28,8 +28,6 @@ ChilloutVR Modding Group: https://discord.gg/dndGPM3bxu
 
 This mod allows you to have Video Remote Controls in the Quick Menu.
 
-This is the feature request for this mod. https://feedback.abinteractive.net/p/video-player-remote-control
-
 # Features
 
 - Pick a video player in the current world, closest first (auto-selects when only one exists)
