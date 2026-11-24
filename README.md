@@ -11,7 +11,7 @@ The **Video Remote mod** adds QOL changes to **ChilloutVR** being able to have a
 
 **Steam Store Page**: https://store.steampowered.com/app/661130/ChilloutVR/
 
-This modification is unofficial and not supported by ChilloutVR or the ChilloutVR team.
+This modification is unofficial and not supported by ChilloutVR or the ChilloutVR team. Using this modification might cause issues with performance, security or stability of the game.
 
 This mod is not affiliated, approved, or verified by the ChilloutVR team in any way whatsoever.
 
