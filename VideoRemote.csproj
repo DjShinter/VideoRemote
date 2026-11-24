@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>VideoRemote</RootNamespace>
     <AssemblyName>VideoRemote</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <langversion>latest</langversion>
@@ -44,14 +44,6 @@
       <HintPath>Libs\BTKUILib.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="DarkRift">
-      <HintPath>Libs\DarkRift.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="DarkRift.Client">
-      <HintPath>Libs\DarkRift.Client.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="MelonLoader">
       <HintPath>Libs\MelonLoader.dll</HintPath>
       <Private>False</Private>
@@ -63,7 +55,6 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Drawing" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -91,37 +82,19 @@
       <HintPath>Libs\UnityEngine.InputModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="UnityEngine.PhysicsModule">
+	<Reference Include="UnityEngine.PhysicsModule">
       <HintPath>Libs\UnityEngine.PhysicsModule.dll</HintPath>
-      <Private>False</Private>
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="HarmonyP.cs" />
-    <Compile Include="Utils.cs" />
     <Compile Include="VideoRemote.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="UI\Images\Button.png" />
     <EmbeddedResource Include="UI\Images\Pause.png" />
     <EmbeddedResource Include="UI\Images\Play.png" />
     <EmbeddedResource Include="UI\Images\VideoPlayerModLogo.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="UI\Images\AdvSettings.png" />
-    <EmbeddedResource Include="UI\Images\Arrow-Left.png" />
-    <EmbeddedResource Include="UI\Images\Arrow-Right.png" />
-    <EmbeddedResource Include="UI\Images\Keys.png" />
-    <EmbeddedResource Include="UI\Images\LoadURLs.png" />
-    <EmbeddedResource Include="UI\Images\NewScreen.png" />
-    <EmbeddedResource Include="UI\Images\PastePlay.png" />
-    <EmbeddedResource Include="UI\Images\ReloadVideo.png" />
-    <EmbeddedResource Include="UI\Images\Save.png" />
-    <EmbeddedResource Include="UI\Images\Sound.png" />
-    <EmbeddedResource Include="UI\Images\SponsorSkip.png" />
-    <EmbeddedResource Include="UI\Images\VideoPlayer.png" />
-    <EmbeddedResource Include="UI\Images\White-Minus.png" />
-    <EmbeddedResource Include="UI\Images\White-Plus.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
