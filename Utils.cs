@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using ABI_RC.VideoPlayer.Scripts;
 using MelonLoader;
 using UnityEngine;
+using static VideoRemote.Loc;
 
 namespace VideoRemote
 {
@@ -45,37 +46,37 @@ namespace VideoRemote
         internal static string VideoState(ViewManagerVideoPlayer vidPlay)
         {
             if (vidPlay?.videoName?.text == null) return "";
-            if (vidPlay.videoName.text.Contains("Currently Playing:")) return "Playing: ";
-            if (vidPlay.videoName.text.Contains("Currently Paused:")) return "Paused: ";
+            if (vidPlay.videoName.text.Contains("Currently Playing:")) return T("Playing: ");
+            if (vidPlay.videoName.text.Contains("Currently Paused:")) return T("Paused: ");
             return "";
         }
 
         internal static string VideoNameFormat(ViewManagerVideoPlayer vidPlay)
         {
-            if (vidPlay?.videoName?.text == null) return "No video player";
-            if (vidPlay.videoName.text.Length < 25) return "No video playing";
+            if (vidPlay?.videoName?.text == null) return T("No video player");
+            if (vidPlay.videoName.text.Length < 25) return T("No video playing");
             if (vidPlay.videoName.text.Contains("Currently Playing:"))
                 return vidPlay.videoName.text.Remove(0, 26);
             if (vidPlay.videoName.text.Contains("Currently Paused:"))
                 return vidPlay.videoName.text.Remove(0, 25);
             var text = vidPlay.videoName.text.Remove(0, 26);
-            return (text != "eo selected") ? text : "No video playing";
+            return (text != "eo selected") ? text : T("No video playing");
         }
 
         internal static string SkipCatSwitch(string value)
         {
             switch (value)
             {
-                case "sponsor":         return "Sponsor";
-                case "selfpromo":       return "Selfpromo";
-                case "interaction":     return "Interaction";
-                case "intro":           return "Intro";
-                case "outro":           return "Outro";
-                case "preview":         return "Preview";
-                case "music_offtopic":  return "Music Offtopic";
-                case "poi_highlight":   return "Highlight";
-                case "chapter":         return "Chapter";
-                default:                return "Unknown: " + value;
+                case "sponsor":         return T("Sponsor");
+                case "selfpromo":       return T("Self Promo");
+                case "interaction":     return T("Interaction");
+                case "intro":           return T("Intro");
+                case "outro":           return T("Outro");
+                case "preview":         return T("Preview");
+                case "music_offtopic":  return T("Music Offtopic");
+                case "poi_highlight":   return T("Highlight");
+                case "chapter":         return T("Chapter");
+                default:                return F("Unknown: {0}", value);
             }
         }
 

@@ -48,6 +48,33 @@ This is the feature request for this mod. https://feedback.abinteractive.net/p/v
 - SponsorBlock: automatically skip sponsor / self-promo / interaction / intro segments
 - Load Blank Video preset
 - Optional icon tint that follows your menu accent color
+- Subtitles: pick the video's captions or subtitles track from a dropdown (only changes it for you)
+- Translatable menus: follows the game's language, or pick one in VideoPlayer Options > Language
+
+# Translations
+
+The mod's menus can be translated with a language file. English is the only language included, and `Languages/en.json` is the example of the format:
+
+```json
+{
+  "code": "en",
+  "name": "English",
+  "strings": {
+    "Play Video": "Play Video",
+    "Subtitles: {0}": "Subtitles: {0}"
+  }
+}
+```
+
+To add a language:
+
+1. Start the game once with the mod. It writes `ChilloutVR/UserData/VideoRemote/Languages/_template.json` with every menu string.
+2. Copy it to a new file in the same folder, for example `fr.json`.
+3. Set `code` to the game's language code (for example `fr`) and `name` to the language's name.
+4. Replace the text on the right of each line with the translation. Keep `{0}`, `{1}` and `<p>` as they are.
+5. Restart the game. Pick the language in VideoPlayer Options > Language, or leave it on Auto to follow the game's language.
+
+Any line you leave out stays in English.
 
 # Credits
 
